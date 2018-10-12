@@ -19,6 +19,10 @@ library(conos)
 library(DESeq2)
 library(Matrix)
 library(conos)
+library(GOstats)
+library(RSQLite)
+library(biomaRt)
+suppressPackageStartupMessages(library(org.Hs.eg.db))
 
 
 
@@ -199,5 +203,99 @@ makeWeb=function(p2,appName,n.cores=5){
   
   
 }
+
+
+
+GOanalysis=function(markers,n){
+
+  ENTREZID=unlist(mget(markers, org.Hs.egSYMBOL2EG, ifnotfound=NA))
+  ENTREZID=ENTREZID[!is.na(ENTREZID)]
+  
+  
+  for(function_type in c("BP", "CC", "MF")){
+    
+    param <- new("GOHyperGParams", geneIds=ENTREZID,
+                 #universe=universe,
+                 annotation="org.Hs.eg.db", ontology=function_type,pvalueCutoff=0.1,
+                 conditional=FALSE, testDirection="over")
+    hyp <- hyperGTest(param)
+    sumTable <- summary(hyp)
+    
+    
+    
+    david=sumTable[1:20,]
+    david$Pvalue=-log(david[,2])
+    termNumber=nrow(david)
+    
+    
+    library(ggplot2)
+    p1 <- ggplot(data=david, aes(x=Pvalue, y=Term, size=Count, colour = factor(david$Count)))
+    p1 <- p1 + geom_point()
+    p1 <- p1 + guides(color = FALSE)
+    p1 <- p1 + theme(panel.grid.major = element_line(colour='blue'),
+                     panel.grid.minor = element_blank(),
+                     panel.background = element_blank())
+    p1 <- p1 + xlab(paste("-log10(Pvalue)", sep="")) + ylab("")
+    p1 <- p1 + labs(title=paste("DAVID:", function_type, sep=""))
+    p1 <- p1 + theme(axis.text.x=element_text(size=10, face="plain", colour ='black'))
+    p1 <- p1 + theme(axis.text.y=element_text(size=6, face="plain", colour ='black'))
+    #p1=p1+theme(axis.title.y=element_text(size=10,face="plain",colour ='black'))
+    #p1=p1+theme(legend.position="bottom")
+    p1 <- p1 + xlim(min(david$Pvalue), max(david$Pvalue))
+    #p1=p1+ylim(-10,+15)
+    print(p1)
+    ggsave(file=paste(n,'_' ,function_type, ".png", sep=""), scale=0.8, dpi=600, width = 7, height=1+0.25*termNumber) 
+  } 
+  
+}
+
+
+
+
+
+
+
+#  draw figure for single genes
+#plotWithGroupsGene(p2ens$p2objs,'PLAUR',jcl3.coarse, file='Myoloid_emb.jcl3.PLAUR.png',verbose=T,panel.size=300)
+plotWithGroupsGene=function(p2objs,gene,groups = NULL, filename = NULL, panel.size = 300, mark.cluster.cex = 0.8, 
+                            mar = c(0.5, 0.5, 0.5, 0.5), mgp = c(2, 0.65, 0), cex = 0.85, 
+                            type = "PCA", embeddingType = "tSNE", mark.clusters = TRUE, 
+                            verbose = FALSE) 
+{
+  require(Cairo)
+  panel.dims <- getParMfrow(length(p2objs))
+  if (verbose) 
+    cat("Panel dimensions are ", panel.dims[1], " by ", panel.dims[2], 
+        "\\n")
+  if (!is.null(filename)) 
+    CairoPNG(file = filename, height = panel.dims[1] * panel.size, 
+             width = panel.dims[2] * panel.size)
+  par(mfrow = c(panel.dims[1], panel.dims[2]), mar = mar, mgp = mgp, 
+      cex = cex)
+  lapply(names(p2objs), function(dn) {
+    d <- p2objs[[dn]]
+    g1 <- as.factor(groups)
+    colors <- NULL
+    if (!any(names(g1) %in% rownames(d$counts))) {
+      g1 <- NULL
+      cell.names <- rownames(d$counts)
+      colors <- rep("grey70", length(cell.names))
+      names(colors) <- cell.names
+    }
+    d$plotEmbedding(type = type, embeddingType = embeddingType, 
+                    alpha = 0.2, min.group.size = 0, mark.clusters = mark.clusters, 
+                    mark.cluster.cex = mark.cluster.cex, do.par = F, 
+                    colors = d$counts[,gene])
+    
+    
+    
+    legend(x = "topleft", bty = "n", legend = dn)
+  })
+  if (!is.null(filename)) 
+    dev.off()
+  invisible(NULL)
+}
+
+
 
 
