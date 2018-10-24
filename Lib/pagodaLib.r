@@ -57,8 +57,8 @@ runPagoda=function(cd,appname='none', n.cores = 1, batch = NULL, n.odgenes = 300
     
     
     p2$getEmbedding(type = 'PCA', embeddingType = 'tSNE', perplexity = 50)
-    M <- 30
-    p2$getEmbedding(type = 'PCA', embeddingType = 'largeVis', M = M, perplexity = perplexity, gamma = 1 / M, alpha = 1 )
+#    M <- 30
+#    p2$getEmbedding(type = 'PCA', embeddingType = 'largeVis', M = M, perplexity = perplexity, gamma = 1 / M, alpha = 1 )
     
     
     pdf1=paste(appname,'.tsn.pdf',sep='') 
