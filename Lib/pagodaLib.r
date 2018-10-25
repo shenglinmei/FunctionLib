@@ -144,7 +144,7 @@ makeWebLable=function(appName,p2,jfac2,n.cores=5){
   
   #    metadata.forweb$jointsamp <- p2.metadata.from.factor(S_cells_ano[cells.in.app], pal=p1,displayname='jointsamp')
   
-  deSets <- get.de.geneset(p2, groups=p2$clusters$PCA[[1]], prefix='de_')
+  deSets <- get.de.geneset(p2, groups=p2$clusters$PCA$multilevel, prefix='de_')
   ## Collect the genesets
   genesets = c(deSets, hierDiffToGenesets(hdea))
   
