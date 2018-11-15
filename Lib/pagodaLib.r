@@ -347,17 +347,17 @@ draw_conos_sgd=function(con,appname,sgd_batches,id,cell_ano=NULL){
 
 # drawfigureP2(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL)
 
-drawfigureP2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL){
+drawfigureP2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL,alpha=0.1){
   pdf1=paste(appname,'.clustering.tsn.png',sep='') 
   png(pdf1,height=600,width=600)
-  p2$plotEmbedding(groups=p2$clusters$PCA$multilevel,type='PCA',embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=0.1,main='clusters (tSNE)')
+  p2$plotEmbedding(groups=p2$clusters$PCA$multilevel,type='PCA',embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='clusters (tSNE)')
   dev.off()
   
   
   if (!is.null(jcl3.coarse)){
     pdf1=paste(appname,'.cells.tsn.png',sep='') 
     png(pdf1,height=600,width=600)
-    p2$plotEmbedding(type='PCA',groups =jcl3.coarse,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=0.1,main='clusters (tSNE)')
+    p2$plotEmbedding(type='PCA',groups =jcl3.coarse,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='clusters (tSNE)')
     dev.off()
   }
   
@@ -365,7 +365,7 @@ drawfigureP2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_
   if (!is.null(cell_ano_sampleType)){ 
     pdf1=paste(appname,'.cells.tsn.sampleType.png',sep='') 
     png(pdf1,height=600,width=600)
-    p2$plotEmbedding(type='PCA',groups =cell_ano_sampleType,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=0.1,main='clusters (tSNE)')
+    p2$plotEmbedding(type='PCA',groups =cell_ano_sampleType,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='clusters (tSNE)')
     dev.off()
   }
   
@@ -374,7 +374,7 @@ drawfigureP2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_
   if (!is.null(cell_ano_sample)){
     pdf1=paste(appname,'.cells.tsn.sample.png',sep='') 
     png(pdf1,height=600,width=600)
-    p2$plotEmbedding(type='PCA',groups =cell_ano_sample,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=0.1,main='clusters (tSNE)')
+    p2$plotEmbedding(type='PCA',groups =cell_ano_sample,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='clusters (tSNE)')
     dev.off()
   }
   
@@ -602,6 +602,50 @@ MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sa
 #conosCluster=con$clusters$multi$groups
 #MakeWebConos(p2,appname,conosTSN,conosCluster,cell_ano_cell,cell_ano_sample=cell_ano_sample,cell_ano_sampleType=cell_ano_sampleType)
   
+
+
+
+creatLableList2=function(jcl3.coarse){
+  #  key='allName'
+  cell_ano_cell=as.character(jcl3.coarse)
+  names(cell_ano_cell)=names(jcl3.coarse)
+  cell_ano_sample=names(cell_ano_cell)
+  names(cell_ano_sample)=names(cell_ano_cell)
+  cell_ano_sample=apply(data.frame(cell_ano_sample),1,function(x) strsplit(x[1],'_')[[1]][1])
+  cell_ano_sampleType=apply(data.frame(cell_ano_sample),1,function(x) strsplit(x[1],'-')[[1]][2])
+  cellano=list('cell'=cell_ano_cell,'sample'=cell_ano_sample,'sampltType'=cell_ano_sampleType)
+  print(table(cell_ano_cell))
+  print(table(cell_ano_sampleType))
+  print(table(cell_ano_sample))
+  
+  return(cellano)
+}
+
+
+mergeDat2=function(raw.mats){
+  
+  genelists <- lapply(raw.mats, function(x) rownames(x))
+  str(genelists)
+  commongenes <- Reduce(intersect,genelists)
+  
+  
+  matrices2 <- mapply(function(m, name) {
+ #   colnames(m) <- paste(name, colnames(m), sep='_');
+    m[commongenes,]
+  },
+  raw.mats,
+  names(raw.mats))
+  cellNum=unlist(lapply(matrices2, function(x) ncol(x)))
+  print('#commongenes')
+  print(length(commongenes))
+  
+  print('#cell numbers')
+  print(cellNum)
+  bigM2 <- Reduce(cbind, matrices2)
+  
+  return(bigM2)
+}
+
 
 
 
