@@ -117,6 +117,57 @@ creatLableList=function(matrices,res,key){
 #ceLable=creatLableList(matrices,res,'allName')
 
 
+
+
+makeWebLable2=function(appName,p2,jfac2,cell_ano2,n.cores=5,save=NULL){
+  
+  jfac2=as.factor(jfac2)
+  cells.in.app <- rownames(p2$counts,jfac2)
+  ## make hierarchical aspects
+  hdea <- p2$getHierarchicalDiffExpressionAspects(type='PCA',clusterName='multilevel',z.threshold=3, n.cores = 5)
+  ## make metadata   
+  metadata.forweb <- list();
+  metadata.forweb$multilevel <- p2.metadata.from.factor(p2$clusters$PCA$multilevel,displayname='Multilevel')
+  ## Set colors manually
+  #  myinfo=p2$clusters$PCA$infomap
+  #  p1 <- rainbow(length(levels(myinfo)), s=1, v=1)
+  #  names(p1) <- levels(myinfo)
+  #  metadata.forweb$infomap <- p2.metadata.from.factor(myinfo[cells.in.app], pal=p1,displayname='Infomap')
+  metadata.forweb$infomap <- p2.metadata.from.factor(p2$clusters$PCA$infomap, displayname = 'Infomap', start=0, end=0.5, s = 1, v=0.7)
+  
+  
+  p1 <- rainbow(length(levels(jfac2)), s=1, v=1)
+  names(p1) <- levels(jfac2)
+  metadata.forweb$Label <- p2.metadata.from.factor(jfac2[cells.in.app], pal=p1,displayname='Label')
+  ## get de sets
+  
+  if(!is.null(cell_ano2)){
+    cell_ano2=as.factor(cell_ano2)
+    p1 <- rainbow(length(levels(cell_ano2)), s=1, v=1)
+    names(p1) <- levels(cell_ano2)
+    metadata.forweb$cell_ano2 <- p2.metadata.from.factor(cell_ano2[cells.in.app], pal=p1,displayname='cell_ano2')
+  } 
+  
+  deSets <- get.de.geneset(p2, groups=p2$clusters$PCA$multilevel, prefix='de_')
+  ## Collect the genesets
+  genesets = c(deSets, hierDiffToGenesets(hdea))
+  
+  #  genesets = hierDiffToGenesets(hdea)
+  appmetadata = list(apptitle=appName)
+  p2$makeGeneKnnGraph();
+  ## make app
+  wp <- make.p2.app(p2, additionalMetadata = metadata.forweb, geneSets = genesets,
+                    dendrogramCellGroups=p2$clusters$PCA[[1]],show.clusters=F,
+                    appmetadata=appmetadata)
+  wp$serializeToStaticFast(paste0(appName,'.bin'))
+  if(!is.null(save)){
+    fout=paste(appName,'.rds',sep='')
+    saveRDS(p2,fout)
+  }
+}
+
+
+
 makeWebLable=function(appName,p2,jfac2,n.cores=5){
 
   jfac2=as.factor(jfac2)
@@ -315,7 +366,7 @@ runP2Genes=function(p2,gs,nPcs=12,k=15,n.cores=10 ,alpha = 0.3 ){
 }
 
 
-draw_conos_sgd=function(con,appname,sgd_batches,id,cell_ano=NULL){
+draw_conos_sgdold=function(con,appname,sgd_batches,id,cell_ano=NULL){
   con$embedGraph(sgd_batches = sgd_batches)
   f1=paste(appname,'_',id,'_conos_clustering.png',sep='')
   a=con$plotGraph(groups=cell_ano_sampleType)
@@ -428,7 +479,7 @@ geneExpConos=function(con,p2,gs,lrow,lcol,appanme,alpha =0.3){
   }
   b=  cowplot::plot_grid(plotlist=lis, ncol=lrow, nrow=lcol)
   fout=paste(appname,'expConos.png',sep='')
-  ggsave(fout,b,width = 2.5*lcol,height=1.2*lrow)
+  ggsave(fout,b,width = 2.3*lcol,height=2.3*lrow)
 }
 
 #gs=c('CD38','CD8A','CD8B')
@@ -649,3 +700,328 @@ mergeDat2=function(raw.mats){
 
 
 
+
+draw_conos_sgd=function(con,appname,sgd_batches,id,cell_ano=NULL){
+  con$embedGraph(sgd_batches = sgd_batches)
+  f1=paste(appname,'_',id,'_conos_clustering.png',sep='')
+  a=con$plotGraph()
+  ggsave(f1,a,width = 7,height=7)
+  
+  if(is.null(cell_ano)){
+    f1=paste(appname,'_',id,'_conos_clustering2.png',sep='')
+    a2= con$plotGraph(groups=cell_ano)
+    ggsave(f1,a2,width = 7,height=7)
+    #   f1=paste(appname,'_',id,'_conos_clustering2.rds',sep='')
+    #  saveRDS(con,f1)
+  } 
+  
+}
+
+
+# Run DEseq 
+# @input count table and categrey tab1 
+# count1=do.call(cbind,lapply(raw.mats,function(x) rowSums(x)))
+# tab1=apply(data.frame(colnames(count1)),1,function(x) strsplit(x,'-')[[1]][2])
+
+runDeseq=function(count1,tab1) {
+  
+  ntype=table(tab1)
+  lres=list()
+  for (cell in names(ntype[ntype>1])){
+    
+    cm=count1
+    ntab=tab1
+    ntab[ntab!=cell]=0
+    ntab[ntab==cell]=1
+    meta <- data.frame(
+      sample.id= colnames(cm),
+      group= ntab
+    )
+    print(meta)
+    dds1 <- DESeqDataSetFromMatrix(cm,meta,design=~group)
+    dds1 <- DESeq(dds1)
+    res1 <- results(dds1,independentFiltering = TRUE,pAdjustMethod = "BH")
+    res1=res1[!is.na(res1$pvalue),]
+    res1=res1[order(res1$pvalue),]
+    lres[[cell]]=res1
+    
+  }
+  return(lres)  
+}  
+
+
+
+# Run differential expressed gene with pagoda2
+DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL){
+  
+  de1 <- p2$getDifferentialGenes(groups=conosCluster)
+  
+  
+  f1=paste(appname,'_diffGene.rds',sep='')
+  saveRDS(de1,f1)
+  for(n in names(de1)){
+    x=de1[[n]]
+    z <- x[order(-x$Z),]
+    if(!is.null(removeGene)){
+      index=grepl('^RP[LKS]',rownames(z))
+      z=z[!index,]
+    }
+    markers=rownames(z)[1:150]
+    markers=markers[!is.na(markers)]
+
+    x <- as.matrix(p2$counts[names(conosCluster),markers])
+    ## trim outliers
+    x <- apply(x, 2, function(xp) {
+      qs <- quantile(xp,c(0.01,0.98))
+      xp[xp<qs[1]] <- qs[1]
+      xp[xp>qs[2]] <- qs[2]
+      xp
+    })
+    x <- x[,(apply(x,2,sd) != 0)]
+    x <- t(scale(x))
+    ## sample 2000 cells for plotting
+    #x <- x[,sample(ncol(x),2000)]
+    o <- order(conosCluster[colnames(x)])
+    annot <- data.frame(cluster=conosCluster[colnames(x)],row.names = colnames(x))
+    
+    annot$dtype='other'
+    annot[as.character(annot[,1])==n,'dtype']=n
+    annot$dtype=as.factor(annot$dtype)
+    
+    
+    pal <- colorRampPalette(c('navy','white','firebrick3'))(50)
+    ## draw heatmap
+    
+    fout=paste(appname,'_',n,'_marker.heatmap.new.png',sep='')
+    rgb.palette <- colorRampPalette(c("blue","white","red"), space = "rgb" )
+    pheatmap(x[,o],labels_col=FALSE,cluster_cols=FALSE,annotation_col = annot,show_colnames = F,
+             cluster_rows = FALSE,color=rgb.palette(100),filename=fout,fontsize_row =4,width=5,height=8,   #3.5*0.02*length(markers),
+             breaks = c(seq(min(x),-0.01,length.out = 50),seq(0.01,max(x),length.out = 50)))
+    
+    
+    iid= paste(appname,'_cluster_',n,sep='')
+    GOanalysis(markers,iid) 
+  }
+}  
+  
+ 
+
+
+
+
+# draw mutiple figure in the one page conos 
+
+drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL){
+
+  if (!is.null(jcl3.coarse)){
+    pdf1=paste(appname,'.cells.conos.png',sep='') 
+    a1=con$plotGraph(groups =jcl3.coarse,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 7,height=7)
+  }
+  
+  
+  if (!is.null(cell_ano_sampleType)){ 
+    pdf1=paste(appname,'.sampleType.conos.png',sep='') 
+    a2=con$plotGraph(groups =cell_ano_sampleType,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 7,height=7)
+  }
+  
+  
+  
+  if (!is.null(cell_ano_sample)){
+    pdf1=paste(appname,'.sample.conos.png',sep='') 
+    a3=con$plotGraph(groups =cell_ano_sample,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 9,height=7)
+  }
+  
+  
+  if (!is.null(saveRDS)){
+    f1=paste(appname,'_conos.rds',sep='')
+    saveRDS(p2,f1)
+  } 
+  
+    b=  cowplot::plot_grid(plotlist=list(a1,a3,a2), ncol=3, nrow=1)
+
+	return(b)
+  
+}
+
+#b=drawfigureConos2(con,appname,jcl3.coarse=anoCell,cell_ano_sampleType=anoSampleType,cell_ano_sample=anoCell2,saveRDS=NULL)
+
+#  Run robust ranking
+library(RobustRankAggreg)
+robust_ranking=function(res,decreasing=NULL) {
+  
+  DataOrder = list()
+  DataOrderName = list()
+  nset=ncol(res)
+  for (i in seq(nset)){
+    order_tmp =order(as.numeric(as.character(res[,i])),decreasing=F)
+    if (!is.null(decreasing)){ order_tmp =order(as.numeric(as.character(res[,i])),decreasing=TRUE) }
+    tmp_name = rownames(res[order_tmp,])
+    print(i)
+    print(tmp_name[1:4])
+    print(order_tmp[1:4])
+    DataOrderName[[i]]=tmp_name
+    DataOrder[[i]] = rank(as.numeric(as.character(res[,i])))}
+  
+  glist = 	DataOrderName
+  r = RobustRankAggreg::rankMatrix(glist) 
+  roubustRanking = aggregateRanks(rmat = r)
+  return(roubustRanking)
+}
+
+
+
+listToOverlapMatrix=function(res,counts=NULL){
+  
+  
+  lc=length(res)
+  stat=matrix(rep(0,lc*lc),lc,lc)
+  for( i in seq(lc)){
+    for (j in seq(lc)){
+      stat[i,j]=length(intersect(res[[i]],res[[j]]))/length(union(res[[i]],res[[j]]))
+      if (!is.null(counts)){stat[i,j]=length(intersect(res[[i]],res[[j]])) }
+    }
+  }
+  colnames(stat)=names(res)
+  rownames(stat)=names(res)
+  return(stat)
+  
+}
+
+
+
+listTomatrix=function(res){
+  # list to a matrix,  row is union genes
+  unionPos=NULL
+  for ( i in names(res)){
+    unionPos=union(unionPos,res[[i]])
+  }
+  #  mutation matix
+  lc=length(res)
+  lr=length(unionPos)
+  stat=matrix(rep(0,lc*lr),lr,lc)
+  for( i in seq(lc)){
+    #	index=match(unionPos,tmp$pos)
+    #	stat[!is.na(index),i]=1
+    index=match(res[[i]],unionPos)
+    stat[index,i]=1
+    #	stat[index,i]=1
+  }
+  colnames(stat)=names(res)
+  rownames(stat)=unionPos
+  return(stat)
+}
+
+
+
+#  lcl <- con$clusters$multi$groups;
+#  x <- jdf(as.factor(lcl),as.factor(anoCell))
+
+  #comparison plot
+  # calculate Jaccard comparison data frame with $overlap and $jacard columns
+  jdf <- function(f1,f2,n.cores=30) {
+    do.call(rbind,mclapply(levels(f1),function(l1) {
+      do.call(rbind,lapply(levels(f2),function(l2) {
+        n1 <- names(f1)[f1==l1]; n2 <- names(f2)[f2==l2];
+        ov <- length(intersect(n1,n2)); tv <- length(union(n1,n2))
+        data.frame(l1=l1,l2=l2,overlap=ov,jaccard=ov/tv)
+      }))
+    },mc.cores=n.cores,mc.preschedule=TRUE))
+  }
+  
+
+
+
+
+
+rawToPagoda=function(datraw,appname){
+
+	genelists <- lapply(datraw, function(x) rownames(x))
+	str(genelists)
+	commongenes <- Reduce(intersect,genelists)
+	length(commongenes)
+
+
+	matrices_raw <- mapply(function(mm, name) {
+	 mm[commongenes,]
+	},
+	datraw,
+	names(datraw))
+
+
+bigM2 <- Reduce(cbind, matrices_raw)
+
+
+p2=runPagoda(bigM2,appname,n.cores = 12)
+
+  f1=paste(appname,'_p2combined.rds',sep='')
+  saveRDS(p2,f1)
+
+
+return(p2)
+}
+
+
+
+#p2_normal=rawToPagoda(raw.mats[Normal],'all_normal')
+
+
+
+
+runConos=function(datlp2,appname){
+  print(names(datlp2))
+  con <- Conos$new(datlp2,n.cores=8)
+  con$buildGraph()
+  con$findCommunities()
+
+
+  f1=paste(appname,'_conos_clustering.pdf',sep='')
+  pdf(f1)
+  con$plotGraph()
+  dev.off()
+
+
+  f1=paste(appname,'_conos.rds',sep='')
+  saveRDS(con,f1)
+
+  return(con)
+
+
+}
+     
+
+
+
+
+
+
+#
+
+#f1='/home/meisl/Workplace/BMME/a.data/conos/Whole_all/Whole_all_conos.rds'
+#tracking_conos(f1,'Whole_all',conosCluster,i,appname,jcl3.coarse)
+
+tracking_conos=function(fin,fname,conosCluster,i,appname,jcl3.coarse){
+  
+  #  tcon=readRDS('/home/meisl/Workplace/BMME/a.data/conos/Whole_all/Whole_all_conos.rds')
+  #  i=3
+  print(fin)
+  tcon=readRDS(fin)
+  sle=conosCluster[conosCluster %in% as.character(i)]
+  jcl3.coarse_cell=as.character(jcl3.coarse)
+  names(jcl3.coarse_cell)=names(jcl3.coarse)
+  jcl3.coarse_cell[!is.na(jcl3.coarse_cell)]='other'
+  jcl3.coarse_cell[names(sle)]=paste('group',i,sep='_')
+  
+  a1=tcon$plotGraph(groups =jcl3.coarse_cell,show.legend=TRUE,title=appname)
+  a2=tcon$plotGraph(groups =jcl3.coarse,show.legend=TRUE,title=appname)
+  
+  b=  cowplot::plot_grid(plotlist=list(a1,a2), ncol=2, nrow=1)
+  
+  pdf1=paste(appname,'_',i,'_',fname,'.conos.png',sep='') 
+  ggsave(pdf1,b,width = 13,height=6)
+  
+}
+
+ 

@@ -1,0 +1,205 @@
+emd=con$embedding
+
+cname2=colnames(emd)
+
+n.anoCell=allano[['cell']][cname2]
+n.anoSample=allano[['sample']][cname2]
+n.anoSampleType=allano[['sampltType']][cname2]
+
+a6=conos::embeddingPlot(tembdding, groups=t.cell,title=dt,alpha=0.1)
+
+
+
+
+n1=V(con$graph)
+n2=names(con$clusters$multi$groups)
+
+
+library("reshape2")
+x <- data.frame(
+    sample.name= sample,
+    link = paste0('<a href="',linkprefix,sample,'">','BP','</a>'),
+    individual = d1,
+    type = d3,
+    stringsAsFactors=FALSE
+)
+
+x <- acast(x,type ~ individual , value.var='link')
+print(xtable(x),type='html',file='BP.Correction.down.index.html', sanitize.text.function = identity)
+
+
+
+
+
+
+
+
+
+
+library(xtable)
+x <- data.frame(
+    sample.name= sample,
+    space = d1,
+    k = d2,
+    nPCs=d3,
+    n.odgenes=d4,
+     link = paste0('<a href="',linkprefix,sample,'">','report','</a>')
+
+)
+print(xtable(x),type='html',file='all.html', sanitize.text.function = identity)
+
+
+
+
+# count1=do.call(cbind,lapply(raw.mats,function(x) rowSums(x)))
+# tab1=apply(data.frame(colnames(count1)),1,function(x) strsplit(x,'-')[[1]][2])
+
+raw.mats=list()
+for (i in nnames){
+  raw.mats[[i]]=bigM2[,anoSampleType==i]
+}
+
+nn=unlist(lapply(raw.mats, function(x) ncol(x)))
+
+
+
+
+# combine figure
+
+ b=  cowplot::plot_grid(plotlist=lis, ncol=lrow, nrow=lcol)
+  fout=paste(appname,'.popuINT2.png',sep='')
+  ggsave(fout,b,width = 5*lrow,height=7*lcol)
+
+
+# cell annotation
+x <- con.bmet11.10$propagateLabels(p, return.distribution = T)
+y <- colnames(x)[apply(x, 1, which.max)]
+
+#  cell porportion 
+library(reshape2)
+
+# Annotation vs sample
+tmp2 <- acast(ano2, anoCell ~ anoSample, fun.aggregate=length)
+head(tmp2)
+# Normalise for the number of cells in each library
+tmp3 <- (sweep(tmp2, 2, colSums(tmp2), FUN='/'))
+tmp4 <- melt(tmp3)
+head(tmp4)
+names(tmp4) <- c('annot', 'sample','pc.of.sample')
+head(tmp4)
+
+
+
+library(ggplot2)
+
+ggplot(tmp4, aes(x=annot, fill=sample, y = pc.of.sample)) + geom_bar(stat='identity', position='fill') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggsave("W.populationsVsSample.png")
+
+
+
+
+ggplot(tmp4, aes(x=sample, fill=annot, y = pc.of.sample)) + geom_bar(stat='identity', position='fill') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggsave("W.sampleVsPopulations.png")
+
+# counts heatmap
+
+library(pheatmap)
+
+    pal <- colorRampPalette(c('white','red'))(50)
+
+pheatmap(t,filename='heatma.count.png',display_numbers=T,w=12,h=12,col=pal,cluster_cols = FALSE,number_format = "%.0f",cluster_rows = FALSE)
+
+
+pheatmap(tmp3,filename='heatma.ratio.png',display_numbers=T,w=12,h=12,col=pal,cluster_cols = FALSE,number_format = "%.2f",cluster_rows = FALSE)
+
+
+#
+
+## Pie chart
+x <- jcl3.coarse[rownames(p2.allW$counts)]
+y <- tabulate(x)
+names(y) <- levels(x)
+png('figures/Whole.piechart.png')
+pie(y,names(y))
+dev.off()
+rm(x,y)
+
+
+#
+
+
+p2.allW=p2
+jcl3.coarse=anoCell
+cma <- Matrix.utils::aggregate.Matrix(p2.allW$counts, jcl3.coarse[rownames(p2.allW$counts)])
+
+#de1 <- p2.allW$getDifferentialGenes(groups=jcl3.coarse[rownames(p2.allW$counts)])
+#str1(de1)
+
+gl1 <- unname(unlist(lapply(de1, function(x) {
+    x <- x[order(x$Z,decreasing=T),]
+    head(rownames(x),n=100)
+})))
+cma.cor.pearson <- cor(as.matrix(t(cma[,gl1])),method='pearson')
+cma.cor.spearman <- cor(as.matrix(t(cma[,gl1])),method='spearman')
+hc.pearson <- hclust(as.dist(1-cma.cor.pearson))
+hc.spearman <- hclust(as.dist(1-cma.cor.spearman))
+par(mfrow=c(1,2))
+plot(hc.pearson)
+
+## 
+png('hc.spearman.100g.png')
+plot(hc.spearman)
+dev.off()
+
+
+#
+
+  con$embedGraph(sgd_batches = sgd_batches)
+
+   b=  cowplot::plot_grid(plotlist=list(a,a1,a2), ncol=3, nrow=1)
+
+    ggsave(f2,b,width = 21,height=7)
+
+
+p2ens <- clusterMatch:::Pagoda2ensemble$new()
+p2ens$setObjects(p2list)
+
+
+p2ens$plotWithGroups(jcl3.coarse_cell, file=fout,verbose=T,panel.size=300,cex = 1.3)
+
+
+   pcs <- fast.pca(t(mat), nPC)
+        m <- t(pcs$l)
+        colnames(m) <- colnames(mat)
+        rownames(m) <- paste0('PC', seq_len(nPC))                   
+
+
+
+       p2 <- Pagoda2$new(mat, n.cores = 10, min.cells.per.gene = 0)
+
+       p2$reductions$PCA=t(m)
+       
+
+   knn <- RANN::nn2(t(m), k=k)[[1]]
+
+
+  adj <- matrix(0, ncol(mat), ncol(mat))
+    rownames(adj) <- colnames(adj) <- colnames(mat)
+    invisible(lapply(seq_len(ncol(mat)), function(i) {
+        adj[i,colnames(mat)[knn[i,]]] <<- 1
+    }))
+  
+    require(igraph)
+    g <- igraph::graph.adjacency(adj, mode="undirected")
+    g <- igraph::simplify(g)
+    
+    method <- igraph::multilevel.community
+    km <- method(g)
+
+  com <- km$membership
+    names(com) <- km$names
+        
+        
+               
+  comb.com <- get.knn.membership(pca.mat, k=5)
+

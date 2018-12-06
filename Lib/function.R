@@ -703,3 +703,60 @@ test.noelia <- function() {
     })
 
 }
+
+
+
+drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL){
+
+  if (!is.null(jcl3.coarse)){
+    pdf1=paste(appname,'.cells.conos.png',sep='') 
+    a1=con$plotGraph(groups =jcl3.coarse,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 7,height=7)
+  }
+  
+  
+  if (!is.null(cell_ano_sampleType)){ 
+    pdf1=paste(appname,'.sampleType.conos.png',sep='') 
+    a2=con$plotGraph(groups =cell_ano_sampleType,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 7,height=7)
+  }
+  
+  
+  
+  if (!is.null(cell_ano_sample)){
+    pdf1=paste(appname,'.sample.conos.png',sep='') 
+    a3=con$plotGraph(groups =cell_ano_sample,show.legend=TRUE,title=appname)
+#    ggsave(pdf1,a1,width = 9,height=7)
+  }
+  
+  
+  if (!is.null(saveRDS)){
+    f1=paste(appname,'_conos.rds',sep='')
+    saveRDS(p2,f1)
+  } 
+  
+    b=  cowplot::plot_grid(plotlist=list(a1,a3,a2), ncol=3, nrow=1)
+
+	return(b)
+  
+}
+
+
+
+
+
+
+badG=function(x){
+  
+  nms=rownames(x)
+  ig_genes = c(grep("^IGJ", nms, v=T), 
+               grep("^IGH",nms,v=T),
+               grep("^IGK", nms, v=T), 
+               grep("^IGL", nms, v=T))
+  
+  bad_genes = unique(c(grep("^RP[LKS]", nms, v=T),c(grep("^MT-", nms, v=T), grep("^MTMR", nms, v=T), grep("^MTND", nms, v=T),"NEAT1","TMSB4X", "TMSB10", ig_genes)))
+  index=nms %in% c(bad_genes,ig_genes)
+  x=x[!index,]
+  print(table(index))
+  return(x)
+}
