@@ -1,3 +1,24 @@
+
+### Save the clav.json which is used for the plot
+library(clusterMatch)
+
+## read in pagoda objects
+datl.p2 <- readRDS('/home/barkasn/work/ninib/bmmet.jun20/projectReferenceData/datl.p2.rds')
+datl.p2 <- datl.p2[grep('Involved|Noninvolved|Tumor|Whole',names(datl.p2))]
+
+## Make ensemble and save the json
+p2ens <- clusterMatch::Pagoda2ensemble$new()
+p2ens$setObjects(datl.p2)
+p2ens$saveCLAVasJSON(groups=jcl3.coarse,json.output='clav.json')
+
+
+
+
+
+
+
+
+#
 emd=con$embedding
 
 cname2=colnames(emd)

@@ -25,7 +25,6 @@ library(biomaRt)
 suppressPackageStartupMessages(library(org.Hs.eg.db))
 
 
-
 #  run pagoda apps 
 runPagoda=function(cd,appname='none', n.cores = 1, batch = NULL, n.odgenes = 3000, nPcs = 100, 
                           k = 30, perplexity = 50, log.scale = TRUE, trim = 10, keep.genes = NULL, 

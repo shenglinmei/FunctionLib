@@ -1,3 +1,6 @@
+ls |while read aa; do if [ -d $aa ]; then echo $aa; fi; done
+
+
 cat file2.txt |while read aa; do arr=(${aa//// });b=${arr[6]};echo $b ; done
 
  rsync -av -e ssh --exclude='*.rds' /home/meisl/Workplace/BMME/a.data/old/cellType/ meisl@pklab.med.harvard.edu://home/meisl/public_html/BMME/report/cellType/
