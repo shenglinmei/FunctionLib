@@ -29,7 +29,7 @@ embedGraph2=function (graph,method = "largeVis",ndim=20, M = 1, gamma = 1, alpha
 #con$clusters$multi$groups
 
 
-def conCmunity=function(con){
+conCmunity=function(con){
  # t=embedGraph2(con$graph)
  # emb <-Rtsne.multicore::Rtsne.multicore(t(t),  perplexity=50, num_threads=10)$Y
  # rownames(emb) <- colnames(t)
