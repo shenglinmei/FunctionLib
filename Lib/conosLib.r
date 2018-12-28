@@ -41,7 +41,7 @@ conCmunity=function(con){
   }
 
 
-def conEmb=function(con){
+conEmb=function(con){
   t=embedGraph2(con$graph)
   emb <-Rtsne.multicore::Rtsne.multicore(t(t),  perplexity=50, num_threads=10)$Y
   rownames(emb) <- colnames(t)
