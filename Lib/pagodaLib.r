@@ -812,10 +812,12 @@ DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL){
 
 drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,saveRDS=NULL){
 
+  lis=list()
   if (!is.null(jcl3.coarse)){
     pdf1=paste(appname,'.cells.conos.png',sep='') 
     a1=con$plotGraph(groups =jcl3.coarse,show.legend=TRUE,title=appname)
 #    ggsave(pdf1,a1,width = 7,height=7)
+    lis[[1]]=a1
   }
   
   
@@ -823,6 +825,7 @@ drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,c
     pdf1=paste(appname,'.sampleType.conos.png',sep='') 
     a2=con$plotGraph(groups =cell_ano_sampleType,show.legend=TRUE,title=appname)
 #    ggsave(pdf1,a1,width = 7,height=7)
+    lis[[2]]=a2
   }
   
   
@@ -831,6 +834,7 @@ drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,c
     pdf1=paste(appname,'.sample.conos.png',sep='') 
     a3=con$plotGraph(groups =cell_ano_sample,show.legend=TRUE,title=appname)
 #    ggsave(pdf1,a1,width = 9,height=7)
+    lis[[3]]=a3
   }
   
   
@@ -839,7 +843,7 @@ drawfigureConos2=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,c
     saveRDS(p2,f1)
   } 
   
-    b=  cowplot::plot_grid(plotlist=list(a1,a3,a2), ncol=3, nrow=1)
+    b=  cowplot::plot_grid(plotlist=lis, ncol=length(lis), nrow=1)
 
 	return(b)
   
@@ -1023,4 +1027,51 @@ tracking_conos=function(fin,fname,conosCluster,i,appname,jcl3.coarse){
   
 }
 
+
+
+   
+ drawfigureP2_muti=function(p2,appname,jcl3.coarse=NULL,cell_ano_sampleType=NULL,cell_ano_sample=NULL,alpha=0.1){
+   
+   if (!is.null(cell_ano_sampleType)){
+     lrow=2
+   }else{
+     lrow=1
+   }   
+   
+   lcol=2
+   filename=paste(appname,'.p2.tSNE.png',sep='')
+   mar = c(0.5, 0.5, 0.5, 0.5)
+   mgp = c(2, 0.65, 0)
+   panel.size=500
+   cex=1.2
+   mark.cluster.cex = 1
+   mark.clusters = TRUE
+  
+   png(file = filename, height = lrow * panel.size, 
+       width = lcol * panel.size)
+   par(mfrow = c(lrow, lcol), mar = mar, mgp = mgp, 
+       cex = cex)
+   
+   p2$plotEmbedding(groups=p2$clusters$PCA$multilevel,type='PCA',embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='mutil level')
+
+   
+   if (!is.null(jcl3.coarse)){
+     p2$plotEmbedding(type='PCA',groups =cell_ano_sampleType,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='Cell annotation')
+   }
+   
+   
+   if (!is.null(cell_ano_sampleType)){ 
+     p2$plotEmbedding(type='PCA',groups =cell_ano_sampleType,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='Sample Type')
+   }
+   
+   
+   if (!is.null(cell_ano_sample)){
+     p2$plotEmbedding(type='PCA',groups =cell_ano_sample,embeddingType='tSNE',show.legend=F,mark.clusters=T,min.group.size=1,shuffle.colors=F,mark.cluster.cex=1,alpha=alpha,main='Sample')
+   }
+   
+   dev.off()
+ }
  
+ 
+# drawfigureP2_muti(p2,appname,jcl3.coarse=anoCell,cell_ano_sampleType=anoCell,cell_ano_sample=NULL,alpha=0.1)
+    
