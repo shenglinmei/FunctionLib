@@ -81,7 +81,7 @@ runConos_Par=function(con,k,dtype,appname,ncomps=50,n.odgenes=1000,ano1,ano2){
 
 
 
-draw_conos_sgd_par_par=function(con,appname,sgd_batches,id,cell_ano1,cell_ano2){
+draw_conos_sgd_par=function(con,appname,sgd_batches,id,cell_ano1,cell_ano2){
   con$embedGraph(sgd_batches = sgd_batches)
   a1=con$plotGraph()
   a2= con$plotGraph(groups=cell_ano1)
