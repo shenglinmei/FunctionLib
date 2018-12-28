@@ -54,7 +54,7 @@ conEmb=function(con){
   
 
 
-runConos_Par_Par=function(con,k,dtype,appname,ncomps=50,n.odgenes=1000,ano1,ano2){
+runConos_Par=function(con,k,dtype,appname,ncomps=50,n.odgenes=1000,ano1,ano2){
 #  k=15
 #  dtype='CPCA'
 #  ncomps=20
