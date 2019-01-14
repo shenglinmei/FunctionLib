@@ -203,7 +203,8 @@ mappingStat10X <-function(path,appname){
     res=rbind(res,convert.factors.to.strings.in.dataframe(dat))
 
   }
-  rownames(res)=nn
+#  rownames(res)=nn
+ return(res)
 }
 
 

@@ -1,3 +1,14 @@
+explis=lapply(con$samples,function(x) 
+  if ('MME' %in% colnames(x$counts)) {x$counts[,'MME']})
+
+
+res=NULL
+for (i in explis){
+  res=c(res,i)
+}
+
+
+
 
 ### Save the clav.json which is used for the plot
 library(clusterMatch)

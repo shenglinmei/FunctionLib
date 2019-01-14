@@ -1074,4 +1074,94 @@ tracking_conos=function(fin,fname,conosCluster,i,appname,jcl3.coarse){
  
  
 # drawfigureP2_muti(p2,appname,jcl3.coarse=anoCell,cell_ano_sampleType=anoCell,cell_ano_sample=NULL,alpha=0.1)
-    
+   
+
+
+
+
+#  run DAVID  source actviate py34 
+runDAVID<-function(genelist,appname){
+  genelist=genelist[!is.na(genelist)]
+  ENTREZID=unlist(mget(genelist, org.Hs.egSYMBOL2EG, ifnotfound=NA))
+  ENTREZID=ENTREZID[!is.na(ENTREZID)]
+  
+  tmpF=paste(appname,'.ENTREZID',sep='')
+  fout=paste(appname,'.DAVID.txt',sep='')
+  write.table(ENTREZID,tmpF,sep='\t',row.names=F,col.names=F,quote=F)
+  cmd=paste("python /d0/home/meisl/Workplace/Archive/DAVID/DAVID_annotation_chart.py --genelist=", tmpF ,' --email="ma.tongji@gmail.com" --out=',fout,sep='')  
+  system(cmd)
+  
+  cmd2=paste('Rscript /d0/home/meisl/Workplace/Archive/DAVID/DAVID_to_figure_vison.r ',fout,' --termNumber=18  -o ',appname,sep='')
+  system(cmd2)
+  
+  print(cmd2)
+  ENTREZID2=names(ENTREZID)
+  names(ENTREZID2)=ENTREZID
+  
+  tmp=read.csv(fout,sep='\t',header=T)
+  tmp$symb=apply(tmp,1,function(x) paste(ENTREZID2[strsplit(as.character(unlist(x['Genes'][1])),', ')[[1]]],collapse=','))
+  
+  write.table(tmp,fout,sep='\t',row.names=F,col.names=T,quote=F)
+  return(tmp)
+}
+
+
+
+
+# r1=ExtractCell(conA,nname)   nname is selected cell name
+
+#  conos subset graph
+ExtractCell=function(conA,cname){
+  g=conA$graph
+  g2=igraph::subgraph(g,cname)
+  method <- igraph::multilevel.community
+  km <- method(g2)
+  mutil <- km$membership
+  names(mutil) <- km$names
+  
+  method <- igraph::label.propagation.community
+  km <- method(g2)
+  label <- km$membership
+  names(label) <- km$names
+  
+  method <- igraph::walktrap.community
+  km <- method(g2)
+  walktrap <- km$membership
+  names(walktrap) <- km$names
+  
+  tmp=leiden.community(g2)
+  leiden <- tmp$membership
+  
+  tmp=leiden.community(g2,resolution = 2, n.iterations = 8)
+  leiden2 <- tmp$membership
+  print(table(leiden2))
+  wij2 <- as_adj(g2, attr = "weight")
+  coords2 <- conos:::projectKNNs(wij = wij2, dim = 2, verbose = TRUE, 
+                                 sgd_batches = 1e+08, gamma = 1, M = 1, seed = 1, 
+                                 alpha = 0.2, rho = 1, threads = 8)
+  colnames(coords2) <- colnames(wij2)
+  res=list('graph'=g2,'mutil'=mutil,'label'=label,'walktrap'=walktrap,'largvis'=t(coords2))
+  
+} 
+
+
+
+
+
+larvisTotSNE=function(g2,ndim=20){
+  coords20 <- conos:::projectKNNs(wij = wij2, dim = ndim, verbose = TRUE, 
+                                  sgd_batches = 1e+08, gamma = 1, M = 1, seed = 1, 
+                                  alpha = 0.2, rho = 1, threads = 8)
+  colnames(coords20) <- colnames(wij2)
+  
+  emb <-Rtsne.multicore::Rtsne.multicore(t(coords20),  perplexity=50, num_threads=10)$Y
+  rownames(emb) <- colnames(coords20)
+  return(emb)
+}
+
+
+
+
+
+
+

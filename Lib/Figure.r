@@ -1,3 +1,19 @@
+
+# dot plot with label 
+library(ggplot2)
+
+tmp3=as.data.frame(tmp3)
+p <- ggplot(tmp3, aes(S1k, S6k, label = rownames(tmp3)))+geom_point()+ 
+  geom_text(check_overlap = TRUE)+ geom_abline(intercept = 0, slope = 1,col='red',linetype="dashed")
+
+
+
+ggsave('S1k_S6k.png',p)
+
+
+
+
+
 #
 
 library(ggpubr)
