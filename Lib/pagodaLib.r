@@ -596,7 +596,8 @@ DEcaculate=function(p2,appname,conosCluster,removeGene=NULL){
 #conosTSN=con$embedding
 #conosCluster=con$clusters$multi$groups
 
-MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sample=NULL,cell_ano_sampleType=NULL){
+
+MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sample=NULL,cell_ano_sampleType=NULL,combine=NULL,grade=NULL){
   n=appname
   p2$embeddings$PCA$conosEb=t(conosTSN)
   jfac2=as.factor(conosCluster)
@@ -620,7 +621,7 @@ MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sa
   p1 <- rainbow(length(levels(S_cells_ano)), s=1, v=1)
   names(p1) <- levels(S_cells_ano)
   metadata.forweb$jointsamp <- p2.metadata.from.factor(S_cells_ano[cells.in.app], pal=p1,displayname='jointsamp')
-
+  
   if(!is.null(cell_ano_sample)){
     cell_ano_sample=as.factor(cell_ano_sample)
     p1 <- rainbow(length(levels(cell_ano_sample)), s=1, v=1)
@@ -635,6 +636,30 @@ MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sa
     metadata.forweb$sampleType <- p2.metadata.from.factor(cell_ano_sampleType[cells.in.app], pal=p1,displayname='sampleType')
   } 
   
+  
+  if(!is.null(combine)){
+    cell=jcl3.coarse2
+    sampleType=cell_ano_sampleType[names(jcl3.coarse2)]
+    
+    ano_combin=paste(cell,as.character(sampleType),sep='_')
+    names(ano_combin)=names(jcl3.coarse2)
+    
+    ano_combin=as.factor(ano_combin)
+    
+    print(table(ano_combin))
+    p1 <- rainbow(length(levels(ano_combin)), s=1, v=1)
+    names(p1) <- levels(ano_combin)
+    metadata.forweb$CellType_DiseaseStatus <- p2.metadata.from.factor(ano_combin[cells.in.app], pal=p1,displayname='Cell_DiseaseStatus')
+  } 
+  
+   if(!is.null(grade)){
+    grade=as.factor(grade)
+    p1 <- rainbow(length(levels(grade)), s=1, v=1)
+    names(p1) <- levels(grade)
+    metadata.forweb$status <- p2.metadata.from.factor(grade[cells.in.app], pal=p1,displayname='status')
+  } 
+  
+   
   deSets <- get.de.geneset(p2, groups=jfac2, prefix='conosDE_')
   ## Collect the genesets
   genesets = c(deSets, hierDiffToGenesets(hdea))
@@ -647,6 +672,7 @@ MakeWebConos<-function(p2,appname,conosTSN,conosCluster,jcl3.coarse2,cell_ano_sa
   wp$serializeToStaticFast(paste0(n,'.bin'))
   
 }  
+
 
 #conosTSN=con$embedding
 #conosCluster=con$clusters$multi$groups
@@ -751,9 +777,9 @@ runDeseq=function(count1,tab1) {
 
 
 # Run differential expressed gene with pagoda2
-DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL){
+DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL,cutoff=3,num=100){
   
-  de1 <- p2$getDifferentialGenes(groups=conosCluster)
+  de1 <- p2$getDifferentialGenes(groups=conosCluster,z.threshold = cutoff)
   
   
   f1=paste(appname,'_diffGene.rds',sep='')
@@ -765,7 +791,7 @@ DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL){
       index=grepl('^RP[LKS]',rownames(z))
       z=z[!index,]
     }
-    markers=rownames(z)[1:150]
+    markers=rownames(z)[1:num]
     markers=markers[!is.na(markers)]
 
     x <- as.matrix(p2$counts[names(conosCluster),markers])

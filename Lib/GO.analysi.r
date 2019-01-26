@@ -1,9 +1,5 @@
 
 
-# input fc or normalized Z score 
-
-
-
 
 library('liger')
 library(qusage)
@@ -59,9 +55,11 @@ runDAVID2<-function(genelist,appname){
 
 
 
-DAVID_topG=function(fc,appname){
-  fc <- fc[!is.na(fc)]
-  fc=fc[order(fc,decreasing=T)]
+DAVID_topG=function(fc,appname,dorder=FALSE){
+  if (dorder){
+    print('order by name')}else{
+    fc <- fc[!is.na(fc)]
+    fc=fc[order(fc,decreasing=T)] }
   glis=list()
   for ( num in c(200,300,400,500)){
     genelist=names(fc[1:num])
@@ -77,7 +75,7 @@ DAVID_topG=function(fc,appname){
 
 DAVID_merge=function(appname,categrey){
   
-  fo=paste(appname,'DAVID.rds',sep='')
+  fo=paste(appname,'.DAVID.rds',sep='')
   rlis=readRDS(fo)
   
   plist=list()
@@ -176,67 +174,274 @@ listTomatrix_Value=function(res){
 
 
 
-# fin  different comparesion 
-# nname=c('Tcyto','NK','TNK','Treg','T_help')
-# path is result of DESeq result; 
+# bigM2 is big data matrix 
+# all ano
+#  group4 and atype; choosed 
 
-gene_list=list()
-fclist=list()
-
-KEGG_lis=list()
-BP_lis=list()
-for ( i in seq(length(path))){
-  tmp=readRDS(path[i])[[fin]][[1]][['res']]
-  tmp=tmp[!is.na(tmp$log2FoldChange),]
-  fc=tmp$log2FoldChange
-  names(fc)=rownames(tmp)
-  fc=fc[order(fc,decreasing=TRUE)]
-  gene_list[[nname[i]]]=names(fc[1:50])
-  fclist[[nname[i]]]=fc
-  n1=paste(fin,'.',nname[i],sep='')
-  
-  
-  KEGG_lis[[nname[i]]] <- tryCatch({
-    DAVID_merge(n1,'KEGG_PATHWAY')
-  },error=function(cond) {
-    print('error')
-    return(NULL)
-  }
-  )
+prepare_rawList=function(bigM2,group4,atype,allano,ncut=15){
+  cell_ano=group4[group4==atype]
+  cname=names(cell_ano)
+  anoSample=allano[['sample']][cname]
  
-  BP_lis[[nname[i]]] <- tryCatch({
-    DAVID_merge(n1,'GOTERM_BP_DIRECT')
-  },error=function(cond) {
-    print('error')
-    return(NULL)
+  index=grepl('BMET11-',names(anoSample))
+  anoSample=anoSample[!index]
+  index=grepl('BMET10-',names(anoSample))
+  anoSample=anoSample[!index]
+  
+  #index=grepl('BMET1-',names(anoSample))
+  #anoSample=anoSample[!index] 
+  gname=names(anoSample)
+
+  t.bigM2=bigM2[,gname]
+  
+  t.bigM2=t.bigM2[rowSums(t.bigM2)>ncut,]
+  tab=table(allano[['sample']][gname])
+  nnames=names(tab[tab>15])
+  
+  raw.mats=list()
+  
+  n.anoSample=allano[['sample']][gname]
+  p2.lis=list()
+  for (n in nnames){
+    cd=t.bigM2[,n.anoSample==n]
+    n1=n
+    raw.mats[[n1]]=cd
   }
-  )  
-  
-  
-  pKEGG= listTomatrix_Value(KEGG_lis)
-  pBP= listTomatrix_Value(BP_lis)
-  
-  pKEGG=as.matrix(pKEGG)
-  pBP=as.matrix(pBP)
-  
-  rgb.palette <- colorRampPalette(c("white","red"), space = "rgb" )
-  mi=min(pKEGG)
-  ma=max(pKEGG)
-  pdf=paste(nname[i],'.KEGG.merge.pdf',sep='')
-  a=pheatmap(pKEGG,filename=pdf,color=rgb.palette(100),scale='none',border_color='NA',cluster_rows=T,cluster_cols=T,
-             show_colnames=T,fontsize_col=6,fontsize_row=8,height=0.3*nrow(pKEGG),
-             breaks = c(mi,seq(2,ma,length.out = 99)))
-  
-  
-  rgb.palette <- colorRampPalette(c("white","red"), space = "rgb" )
-  mi=min(pBP)
-  ma=max(pBP)
-  pdf=paste(nname[i],'.BP.merge.pdf',sep='')
-  a=pheatmap(pBP,filename=pdf,color=rgb.palette(100),scale='none',border_color='NA',cluster_rows=T,cluster_cols=T,
-             show_colnames=T,fontsize_col=6,fontsize_row=8,height=0.3*nrow(pBP),
-             breaks = c(mi,seq(2,ma,length.out = 99)))
+	nn=unlist(lapply(raw.mats, function(x) ncol(x)))
+	print(atype)
+	print(nn)
+	return(raw.mats)
   
 }
+
+
+
+
+
+RunDE_cellType=function(raw.mats2,jcl3.coarse,appname){
+
+  source('/home/meisl/bin/FunctionLib/Lib/pagodaLib.r')
+  
+  allano <- readRDS('/d0-mendel/home/meisl/Workplace/BMME/a.data/jcl3.coarse.all.rds')
+  allclean <- readRDS('/d0-mendel/home/meisl/Workplace/BMME/a.data/jcl3.cleanup.all.rds')
+  
+  tmp=readRDS('/d0-mendel/home/meisl/Workplace/BMME/a.data/Selected_Joint_embdding/anCell_12_28.rds')
+  allano[['cell']]=tmp
+  
+  
+  
+  cytokine=readRDS('/home/meisl/bin/data/cytokine.rds')
+  surface=readRDS('/home/meisl/bin/data/membrane.rds')
+  ano=readRDS('/home/meisl/bin/data/gene.annotation.rds')
+  
+  
+  ## run differential expressed genes 
+  membrane <- readRDS('/d0-mendel/home/barkasn/work/extracellularProteins/output/hs.membrane.hgnc.rds')
+  
+  source('/home/meisl/bin/FunctionLib/Lib/de.functions.R')
+  membrane=cytokine
+  
+  
+  
+  ## membrane information
+  getMeta <- function(res) {
+    all.genes <- unique(unlist(lapply(res, function(x) {
+      if(!is.error(x)){
+        rownames(as.data.frame(x$res))
+      } else {
+        NULL
+      }
+    })))
+    gene.metadata <- data.frame(
+      geneid=all.genes,
+      membrane=all.genes %in% membrane
+    )
+    gene.metadata
+  }
+  
+  
+  nn=apply(data.frame(names(raw.mats2)),1,function(x) strsplit(x,'-')[[1]][2]) %>% table()
+  fname=names(nn[nn>1])
+  
+  
+  ## 
+  allres=list()
+  Vec=readRDS('/home/meisl/Workplace/BMME/b.newAno/diffGene/rds/correctedVec.rds')
+  
+  for ( i in seq(length(fname))){
+    for (j in seq( length(fname))){
+      if (fname[i]!=fname[j]){
+        print('##')
+        print(fname[i])
+        print(fname[j])
+        
+        sampleGroups <- list(
+          treat=names(raw.mats2)[grepl(fname[i],names(raw.mats2))],
+          control=names(raw.mats2)[grepl(fname[j],names(raw.mats2))]
+        )
+        
+        n1=paste(fname[i],'_vs_',fname[j],sep='')      
+        
+        
+        if (grepl('Tumor',n1)){
+          print('adjust')
+          fc.TvsW=Vec[[n1]]
+          gs=intersect(names(fc.TvsW),colnames(raw.mats2[[1]]))
+          raw.mats3=lapply(raw.mats2,function(x) x[,gs])
+          
+          all.percl.TvsW.nocorr <- getPerCellTypeDECorrected_raw_list(conObj=raw.mats3,
+                                                                      groups=jcl3.coarse,
+                                                                      sampleGroups=sampleGroups,
+                                                                      n.cores=32,correction=fc.TvsW[gs],reflevel='control')
+          
+        }else{
+          ## Do differential expression without correction
+          all.percl.TvsW.nocorr <- getPerCellTypeDE_raw_list(conObj=raw.mats2,
+                                                             groups=jcl3.coarse,
+                                                             sampleGroups=sampleGroups,
+                                                             reflevel='control',
+                                                             n.cores=22)
+        }
+        
+        allres[[n1]]=all.percl.TvsW.nocorr
+        #      fo=paste(fname[i],'_vs_',fname[j],'.rds',sep='')
+        #      saveRDS(all.percl.TvsW.nocorr,fo)
+      }
+    }
+    
+    
+  }
+  
+  fo=paste(appname,'.DESeq.with.BMET1.rds',sep='')
+  saveRDS(allres,fo)
+  
+}
+
+
+
+
+GETnomrlizedCount=function(raw.mats,appname){
+  
+  count1=do.call(cbind,lapply(raw.mats,function(x) rowSums(x)))
+  
+  tab1=apply(data.frame(colnames(count1)),1,function(x) strsplit(x,'-')[[1]][2])
+  table(tab1)
+  
+  cm=count1
+  meta <- data.frame(
+    sample.id= colnames(cm),
+    group= tab1
+  )
+  dds1 <- DESeqDataSetFromMatrix(cm,meta,design=~group)
+  dds1 <- DESeq(dds1)
+  
+  dat_DEseq=counts(dds1, normalized=TRUE)
+  
+  cm.tmp=count1
+  cm.tmp <- as.matrix(cm.tmp)
+  rownames(cm.tmp) <- rownames(cm)
+  ## calculate cpm
+  cpm <- sweep(cm.tmp, 2, apply(cm.tmp,2, sum), FUN='/')
+  dat_cpm <- log10(cpm * 1e6 + 1)
+  
+  r=list('dat_DEseq'=dat_DEseq,'dat_cpm'=dat_cpm,'raw'=raw.mats,'tab1'=tab1)
+  
+  fo=paste(appname,'.normlized.count.rds',sep='')
+  saveRDS(r,fo)
+  
+  return(r)
+}
+
+
+
+
+
+
+runGexp=function(gs,appname,dat){
+  dat_DEseq=dat[['dat_DEseq']]
+  dat_cpm=dat[['dat_cpm']]
+  #tab1=dat[['tab1']]
+  
+  tab1=apply(data.frame(colnames(dat_cpm)),1,function(x) strsplit(x,'-')[[1]][2])
+  
+  gs=intersect(rownames(dat_DEseq),gs)
+  
+  lrow=ceiling(length(gs)/5)
+  
+  lis=list()
+  lis2=list()
+  for (gene in gs) {
+    library(ggplot2)
+    
+    
+    nn=as.factor(tab1)
+    nn <- ordered(nn, levels = c("Whole","Noninvolved", "Involved","Tumor"))
+    table(nn==tab1)
+    
+    dat=data.frame('exp_DEseq'=dat_DEseq[gene,],'exp_cpm'=dat_cpm[gene,],'dtype'=nn)
+    
+    p <- ggplot(dat, aes(x=dtype,fill=dtype,y=exp_cpm)) + geom_boxplot(outlier.shape = NA)  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(axis.text.x=element_blank()) +xlab("Type") + ylab("Log Exp")
+    p=p+ geom_point(aes(fill = dtype), size = 2, shape = 21, position = position_jitterdodge()) + ggtitle(gene) 
+    
+    lis[[gene]]=p
+    
+    
+    
+    p1 <- ggplot(dat, aes(x=dtype,fill=dtype,y=exp_DEseq)) + geom_boxplot(outlier.shape = NA)  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(axis.text.x=element_blank()) +xlab("Type") + ylab("Exp DESeq ")
+    p1=p1+ geom_point(aes(fill = dtype), size = 2, shape = 21, position = position_jitterdodge()) + ggtitle(gene) 
+    
+    lis2[[gene]]=p1
+    
+  }
+  
+  # 
+  #p <- ggplot(dat, aes(x=dtype,fill=dtype,y=exp_DEseq)) + geom_boxplot(outlier.shape = NA)  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(axis.text.x=element_blank()) +xlab("Type") + ylab("Exp")
+  
+  
+  #p<- p+geom_point(aes(fill = atype), size = 0.6, shape = 21, position = position_jitterdodge())
+  
+  #ggsave(f2,plot=p,width=12,height=8)
+  
+  
+  b=  cowplot::plot_grid(plotlist=lis, ncol=5, nrow=lrow)
+  
+  
+  ggsave(paste(appname,'.png',sep=''),b,width = 5*5,height=3*lrow)
+  
+  
+  
+  
+  
+  b=  cowplot::plot_grid(plotlist=lis2, ncol=5, nrow=lrow)
+  
+  
+  ggsave(paste(appname,'.DEseq.png',sep=''),b,width = 5*5,height=3*lrow)
+  
+  
+  
+}
+
+
+
+GO_singleVec=function(fc,appname){
+  
+ # gsea=runGSEA(fc)
+#  fo=paste(appname,'.gsea.new.rds',sep='')
+#  saveRDS(gsea,fo)
+  
+  
+  rlis=DAVID_topG(fc,appname)
+  
+  fo=paste(appname,'.DAVID.rds',sep='')
+  saveRDS(rlis,fo)
+  
+  
+  tmp=DAVID_merge(appname,'GOTERM_BP_DIRECT')
+  
+  tmp2=DAVID_merge(appname,'KEGG_PATHWAY')
+  
+}
+
 
 
 

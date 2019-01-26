@@ -1,3 +1,52 @@
+  fout=paste(appname,'.cell.cluster.ratio.pdf',sep='')
+
+
+pdf(file=fout,width=8,height=10)
+  lcl <- cluster;
+  x <- jdf(as.factor(lcl),as.factor(anoCell2))
+  x$l2 <- factor(as.character(x$l2),levels=levels(x$l2)[order(unlist(tapply(1:nrow(x),x$l2,function(ii) { w <- x$ov[ii]^5; sum(as.integer(x$l1)[ii] * w)/sum(w) })),decreasing=F)])
+  ggplot(x,aes(x=l2,y=l1))+geom_point(aes(size=sqrt(overlap),alpha=jaccard),col='blue')+scale_size(range = c(0, 6))+theme_bw()+theme(axis.text.x = element_text(angle = 90, hjust = 1,size=rel(0.9)), axis.text.y=element_text(size=rel(0.9)))+labs(x='',y='multilevel clusters')
+  dev.off()
+  gc()
+
+
+
+
+
+
+
+
+
+
+
+
+    nn=as.factor(tab1)
+    nn <- ordered(nn, levels = c("Whole","Noninvolved", "Involved","Tumor"))
+    table(nn==tab1)
+    
+
+  dat=data.frame('exp_DEseq'=dat_DEseq[gene,],'exp_cpm'=dat_cpm[gene,],'dtype'=nn)
+    
+    p <- ggplot(dat, aes(x=dtype,fill=dtype,y=exp_cpm)) + geom_boxplot(outlier.shape = NA)  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(axis.text.x=element_blank()) +xlab("Type") + ylab("Log Exp")
+    p=p+ geom_point(aes(fill = dtype), size = 2, shape = 21, position = position_jitterdodge()) + ggtitle(gene) 
+     
+
+
+
+
+ f1=paste(appname,'.',kkey,'.cell.png',sep='')
+  
+  p <- ggplot(dat, aes(x=cell,fill=cell,y=Exhuastion)) + geom_boxplot(outlier.shape = NA) + facet_wrap(~Type,scales='free') + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(axis.text.x=element_blank()) +xlab("Type") + ylab(kkey)
+  
+  ggsave(f1,plot=p,width=8,height=5)
+  
+
+
+
+
+
+
+
 
 # dot plot with label 
 library(ggplot2)
