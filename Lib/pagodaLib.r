@@ -1191,3 +1191,68 @@ larvisTotSNE=function(g2,ndim=20){
 
 
 
+
+
+
+
+factorEmbedding=function(emb,anoSample,appname,alpha=0.1,lcol=5,panel.size=400,mark.cluster.cex = 1){
+  lcol=lcol
+  lrow=ceiling(length(unique(anoSample))/lcol)
+  filename=paste(appname,'.indivisual.emb.png',sep='')
+  mar = c(0.5, 0.5, 0.5, 0.5)
+  mgp = c(2, 0.65, 0)
+  panel.size=panel.size
+  cex=1.2
+  mark.cluster.cex = mark.cluster.cex
+  mark.clusters = TRUE
+  
+  png(file = filename, height = lrow * panel.size, 
+      width = lcol * panel.size)
+  par(mfrow = c(lrow, lcol), mar = mar, mgp = mgp, 
+      cex = cex)
+  
+  
+  for (i in unique(anoSample)){
+    
+    y2=anoSample
+    y2[y2!=i]='other'
+    plotEmbedding(emb,groups=y2, mark.clusters=TRUE, alpha=alpha,main=i)
+    
+  }
+  
+  dev.off()
+
+}
+
+
+
+
+
+
+mutiEmbedding=function(emb,gps,appname,alpha=0.1,lcol=2,panel.size=500,mark.cluster.cex = 1){
+  lcol=lcol
+  lrow=ceiling(length(unique(gps))/lcol)
+  filename=paste(appname,'.emb.png',sep='')
+  mar = c(0.5, 0.5, 0.5, 0.5)
+  mgp = c(2, 0.65, 0)
+  panel.size=panel.size
+  cex=1.2
+  mark.cluster.cex = mark.cluster.cex
+  mark.clusters = TRUE
+  
+  png(file = filename, height = lrow * panel.size, 
+      width = lcol * panel.size)
+  par(mfrow = c(lrow, lcol), mar = mar, mgp = mgp, 
+      cex = cex)
+  
+  for (i in names(gps)){
+    
+    y2=gps[[i]]
+    plotEmbedding(emb,groups=y2, mark.clusters=TRUE, alpha=alpha,main=i,mark.cluster.cex=mark.cluster.cex,show.legend=TRUE)
+    
+  }
+  
+  dev.off()
+  
+}
+
