@@ -1,3 +1,23 @@
+
+source('/home/meisl/bin/FunctionLib/Lib/pagodaLib.r')
+source('/home/meisl/bin/FunctionLib/Lib/conosLib.r')
+source('/d0-mendel/home/meisl/bin/FunctionLib/Lib/function.R')
+source('/d0-mendel/home/meisl/bin/FunctionLib/Lib/GO.analysi.r')
+
+
+
+tmp=leiden.community(g2)
+leiden <- tmp$membership
+
+
+tmp=leiden.community(g2,resolution = 2, n.iterations = 8)
+leiden2 <- tmp$membership
+table(leiden2)
+
+
+
+
+
 ls |while read aa; do if [ -d $aa ]; then echo $aa; fi; done
 
 

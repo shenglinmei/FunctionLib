@@ -1247,7 +1247,7 @@ mutiEmbedding=function(emb,gps,appname,alpha=0.1,lcol=2,panel.size=500,mark.clus
   
   for (i in names(gps)){
     
-    y2=gps[[i]]
+    y2=gps[[i]][rownames(emb)]
     plotEmbedding(emb,groups=y2, mark.clusters=TRUE, alpha=alpha,main=i,mark.cluster.cex=mark.cluster.cex,show.legend=TRUE)
     
   }
@@ -1255,4 +1255,7 @@ mutiEmbedding=function(emb,gps,appname,alpha=0.1,lcol=2,panel.size=500,mark.clus
   dev.off()
   
 }
+# factorEmbedding(emb,anoSample,paste(appname,'.sample',sep=''),alpha=0.05)
+#factorEmbedding(emb,anoCell,paste(appname,'.cell',sep=''),alpha=0.05)
 
+#

@@ -216,3 +216,57 @@ mappingStat10X <-function(path,appname){
 
 
 
+#g=con$graph
+#wij2 <- as_adj(g, attr = "weight")
+# g2=igraph::subgraph(g,nname) 
+#res=igraph_emb(wij2,20)
+
+igraph_emb=function(wij2,ndim,sgd_batches = 1e+08,alpha=0.2){
+  
+  
+  coords20 <- conos:::projectKNNs(wij = wij2, dim = ndim, verbose = TRUE, 
+                                  sgd_batches = sgd_batches, gamma = 1, M = 1, seed = 1, 
+                                  alpha = alpha, rho = 1, threads = 8)
+  colnames(coords20) <- colnames(wij2)
+  
+  emb <-Rtsne.multicore::Rtsne.multicore(t(coords20),  perplexity=50, num_threads=10)$Y
+  rownames(emb) <- colnames(coords20)
+  
+  res=list('emb'=emb,'largvis'=t(coords20))
+  return(res)
+}
+
+
+
+# identify community
+
+graphCommunity=function(g2){
+  method <- igraph::multilevel.community
+  km <- method(g2)
+  mutil <- km$membership
+  names(mutil) <- km$names
+  
+  
+  method <- igraph::label.propagation.community
+  km <- method(g2)
+  label <- km$membership
+  names(label) <- km$names
+  
+
+  method <- igraph::walktrap.community
+  km <- method(g2)
+  walktrap <- km$membership
+  names(walktrap) <- km$names
+
+  tmp=leiden.community(g2)
+  leiden <- tmp$membership
+  
+  tmp=leiden.community(g2,resolution = 2, n.iterations = 8)
+  leiden2 <- tmp$membership
+  table(leiden2)
+  
+  res=list('mutil'=mutil,'label'=label,'leiden'=leiden,'leiden2'=leiden2)
+  return(res)
+}
+
+
