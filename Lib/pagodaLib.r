@@ -778,7 +778,7 @@ runDeseq=function(count1,tab1) {
 
 # Run differential expressed gene with pagoda2
 DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL,cutoff=3,num=100){
-  
+  allg=NULL  
   de1 <- p2$getDifferentialGenes(groups=conosCluster,z.threshold = cutoff)
   
   
@@ -793,7 +793,7 @@ DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL,cutoff=3,num=100){
     }
     markers=rownames(z)[1:num]
     markers=markers[!is.na(markers)]
-
+    allg=cbind(allg,markers)
     x <- as.matrix(p2$counts[names(conosCluster),markers])
     ## trim outliers
     x <- apply(x, 2, function(xp) {
@@ -827,6 +827,11 @@ DEcaculate2=function(p2,appname,conosCluster,removeGene=NULL,cutoff=3,num=100){
     iid= paste(appname,'_cluster_',n,sep='')
     GOanalysis(markers,iid) 
   }
+  colnames(allg)=names(de1)
+
+
+  write.table(allg,paste(appname,'_Diff_gene.xls',sep=''),sep='\t',col.names=T,row.names=F,quote=F)
+
 }  
   
  
