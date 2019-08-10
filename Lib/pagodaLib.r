@@ -973,7 +973,7 @@ listTomatrix=function(res){
 
 
 
-rawToPagoda=function(datraw,appname){
+rawToPagoda=function(datraw,appname,tSNE=TRUE){
 
 	genelists <- lapply(datraw, function(x) rownames(x))
 	str(genelists)
@@ -991,7 +991,7 @@ rawToPagoda=function(datraw,appname){
 bigM2 <- Reduce(cbind, matrices_raw)
 
 
-p2=runPagoda(bigM2,appname,n.cores = 12)
+p2=runPagoda(bigM2,appname,n.cores = 12,get.tsne=tSNE)
 
   f1=paste(appname,'_p2combined.rds',sep='')
   saveRDS(p2,f1)
@@ -1007,18 +1007,16 @@ return(p2)
 
 
 
-runConos=function(datlp2,appname){
+runConos=function(datlp2,appname,n.cores=8){
   print(names(datlp2))
-  con <- Conos$new(datlp2,n.cores=8)
+  con <- Conos$new(datlp2,n.cores=n.cores)
   con$buildGraph()
   con$findCommunities()
 
 
   f1=paste(appname,'_conos_clustering.pdf',sep='')
-  pdf(f1)
-  con$plotGraph()
-  dev.off()
-
+  p1=con$plotGraph()
+  ggsave(f1,p1)
 
   f1=paste(appname,'_conos.rds',sep='')
   saveRDS(con,f1)
@@ -1267,3 +1265,295 @@ mutiEmbedding=function(emb,gps,appname,alpha=0.1,lcol=2,panel.size=500,mark.clus
 #factorEmbedding(emb,anoCell,paste(appname,'.cell',sep=''),alpha=0.05)
 
 #
+
+
+
+
+
+
+
+basicP2proc2=function (cd, n.cores = 1, batch = NULL, n.odgenes = 3000, nPcs = 100, 
+                       k = 30, perplexity = 50, log.scale = TRUE, trim = 10, keep.genes = NULL, 
+                       min.cells.per.gene = 0, min.transcripts.per.cell = 100, get.largevis = TRUE, 
+                       get.tsne = TRUE, make.geneknn = TRUE,alphaf=0.05,gs=NULL,rm=NULL) 
+{
+  rownames(cd) <- make.unique(rownames(cd))
+  p2 <- Pagoda2$new(cd, n.cores = n.cores, batch = batch, keep.genes = keep.genes, 
+                    trim = trim, log.scale = log.scale, min.cells.per.gene = min.cells.per.gene, 
+                    min.transcripts.per.cell = min.transcripts.per.cell)
+  p2$adjustVariance(plot = F, gam.k = 10,alpha = alphaf)
+  
+  p2$misc$odgenes.old=p2$misc$odgenes
+  if (!is.null(gs)){
+    p2$misc$odgenes=intersect(p2$misc$odgenes,gs)
+  }
+  
+  if (!is.null(rm)){
+    p2$misc$odgenes=setdiff(p2$misc$odgenes,rm)
+  }
+  
+  print(length(p2$misc$odgenes))
+  p2$calculatePcaReduction(nPcs = nPcs, n.odgenes = n.odgenes, 
+                           maxit = 1000)
+  p2$makeKnnGraph(k = k, type = "PCA", center = TRUE, weight.type = "none", 
+                  n.cores = n.cores, distance = "cosine")
+  p2$getKnnClusters(method = igraph::multilevel.community, 
+                    type = "PCA", name = "multilevel")
+  if (get.largevis) {
+    M <- 30
+    p2$getEmbedding(type = "PCA", embeddingType = "largeVis", 
+                    M = M, perplexity = perplexity, gamma = 1/M, alpha = 1)
+  }
+  if (get.tsne) {
+    if (perplexity > nrow(p2$counts)/5) {
+      perplexity <- floor((nrow(p2$counts) - 1)/3)
+      cat("perplexity is too large, reducing to", perplexity, 
+          "\n")
+    }
+    p2$getEmbedding(type = "PCA", embeddingType = "tSNE", 
+                    perplexity = perplexity, distance = "L2")
+  }
+  if (make.geneknn) {
+    p2$makeGeneKnnGraph()
+  }
+  invisible(p2)
+}
+
+
+
+
+DEheatmap=function(p2myeloid,conosCluster,appname,removeGene=NULL,num=20){
+  de1 <- p2myeloid$getDifferentialGenes(groups=conosCluster)
+  ggg=NULL
+  for(n in names(de1)){
+    x=de1[[n]]
+    z <- x[order(-x$Z),]
+    if(!is.null(removeGene)){
+      index=grepl('^RP[LKS]',rownames(z))
+      z=z[!index,]
+      index=grepl('^MT-',rownames(z))
+      z=z[!index,]
+      index=grepl('^HSP',rownames(z))
+      z=z[!index,]
+    }
+    markers=rownames(z)[1:num]
+    #markers=markers[!is.na(markers)]
+    
+    #allg=cbind(allg,markers)
+    ggg=c(ggg,markers)
+    
+  }
+  
+  markers=unique(ggg)
+  
+  
+  
+  
+  
+  x <- as.matrix(p2myeloid$counts[names(conosCluster),markers])
+  ## trim outliers
+  x <- apply(x, 2, function(xp) {
+    qs <- quantile(xp,c(0.01,0.98))
+    xp[xp<qs[1]] <- qs[1]
+    xp[xp>qs[2]] <- qs[2]
+    xp
+  })
+  x <- x[,(apply(x,2,sd) != 0)]
+  x <- t(scale(x))
+  ## sample 2000 cells for plotting
+  #x <- x[,sample(ncol(x),2000)]
+  o <- order(conosCluster[colnames(x)])
+  
+  
+  x=x[,o]
+  ss=apply(x,2,function(x) sum(x))
+  
+  x=x[,abs(ss)>0.1]
+  
+  
+  annot <- data.frame(CellType=conosCluster[colnames(x)],row.names = colnames(x))
+  
+  
+  annot2=annot
+  
+  #annot2 = data.frame(ID = as.factor(as.character(annot[,1])))
+  rownames(annot2)=colnames(x)
+  
+  
+  cellA=annot2[,1]
+  names(cellA)=rownames(annot2)
+  
+  o <- order(cellA)
+
+  x=x[,o]
+  
+  pal <- colorRampPalette(c('navy','white','firebrick3'))(50)
+  ## draw heatmap
+  
+  fout=paste(appname,'.DiffG.png')
+  rgb.palette <- colorRampPalette(c("blue","white","red"), space = "rgb" )
+  heat=pheatmap(x,cluster_cols=FALSE,annotation_col = annot2,show_colnames = F,annotation_legend = TRUE, #,gaps_col =  1,
+                cluster_rows = FALSE,color=rgb.palette(100),filename=fout,fontsize_row =5,width=8,height=8.8,   #3.5*0.02*length(markers),
+                breaks = c(seq(min(x),-0.01,length.out = 50),0.01,seq(0.1,2,length.out = 48),max(x)))
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+DEcaculate2.term=function(p2,appname,conosCluster,removeGene=NULL,cutoff=3,num=100,GO=NULL){
+  allg=NULL  
+  de1 <- p2$getDifferentialGenes(groups=conosCluster,z.threshold = cutoff)
+  
+  folderN=paste(appname,'.DE',sep='')
+  pwd=getwd()
+  pwd2=paste(pwd,'/',folderN,'/',sep='')
+  
+  system(paste('mkdir ',folderN))
+  
+  setwd(pwd2)
+  
+  
+  
+  
+  f1=paste(appname,'_diffGene.rds',sep='')
+  saveRDS(de1,f1)
+  for(n in names(de1)){
+    x=de1[[n]]
+    z <- x[order(-x$Z),]
+    if(!is.null(removeGene)){
+      index=grepl('^RP[LKS]',rownames(z))
+      z=z[!index,]
+    }
+    markers=rownames(z)[1:num]
+    markers=markers[!is.na(markers)]
+    allg=cbind(allg,markers)
+    x <- as.matrix(p2$counts[names(conosCluster),markers])
+    ## trim outliers
+    x <- apply(x, 2, function(xp) {
+      qs <- quantile(xp,c(0.01,0.98))
+      xp[xp<qs[1]] <- qs[1]
+      xp[xp>qs[2]] <- qs[2]
+      xp
+    })
+    x <- x[,(apply(x,2,sd) != 0)]
+    x <- t(scale(x))
+    ## sample 2000 cells for plotting
+    #x <- x[,sample(ncol(x),2000)]
+    o <- order(conosCluster[colnames(x)])
+    annot <- data.frame(cluster=conosCluster[colnames(x)],row.names = colnames(x))
+    
+    annot$dtype='other'
+    annot[as.character(annot[,1])==n,'dtype']=n
+    annot$dtype=as.factor(annot$dtype)
+    
+    
+    pal <- colorRampPalette(c('navy','white','firebrick3'))(50)
+    ## draw heatmap
+    
+    fout=paste(appname,'_',n,'_marker.heatmap.png',sep='')
+    rgb.palette <- colorRampPalette(c("blue","white","red"), space = "rgb" )
+    pheatmap(x[,o],labels_col=FALSE,cluster_cols=FALSE,annotation_col = annot,show_colnames = F,
+             cluster_rows = FALSE,color=rgb.palette(100),filename=fout,fontsize_row =4,width=5,height=8,   #3.5*0.02*length(markers),
+             breaks = c(seq(min(x),-0.01,length.out = 50),seq(0.01,max(x),length.out = 50)))
+    
+    
+    iid= paste(appname,'_cluster_',n,sep='')
+    if(!is.null(GO)){
+      
+      figGO=GOanalysis.term(markers,iid) 
+      figGO=figGO[['BP']]
+      
+      for (jj in seq(nrow(figGO))){
+        
+        gs=figGO[jj,'genes']
+        gs=strsplit(gs,',')[[1]]
+        
+        if (length(gs) >= 4 ){
+        
+        fout=paste(appname,'_',n,'_',figGO[jj,'Term'],'_BP.heatmap.png',sep='')
+        rgb.palette <- colorRampPalette(c("blue","white","red"), space = "rgb" )
+        pheatmap(x[gs,o],labels_col=FALSE,cluster_cols=FALSE,annotation_col = annot,show_colnames = F,
+                 cluster_rows = FALSE,color=rgb.palette(100),filename=fout,fontsize_row =4,width=5,height=5*0.02*length(gs),
+                 breaks = c(seq(min(x),-0.01,length.out = 50),seq(0.01,max(x),length.out = 50)))
+        
+      }}
+      
+      
+      }
+  }
+  colnames(allg)=names(de1)
+  
+  
+  write.table(allg,paste(appname,'_Diff_gene.xls',sep=''),sep='\t',col.names=T,row.names=F,quote=F)
+  setwd(pwd)
+}  
+
+
+
+
+
+
+GOanalysis.term=function(markers,n){
+  
+  ENTREZID=unlist(mget(markers, org.Hs.egSYMBOL2EG, ifnotfound=NA))
+  ENTREZID=ENTREZID[!is.na(ENTREZID)]
+  
+  allr=list()
+  
+  for(function_type in c("BP", "CC", "MF")){
+    
+    param <- new("GOHyperGParams", geneIds=ENTREZID,
+                 #universe=universe,
+                 annotation="org.Hs.eg.db", ontology=function_type,pvalueCutoff=0.1,
+                 conditional=FALSE, testDirection="over")
+    hyp <- hyperGTest(param)
+    sumTable <- summary(hyp)
+    
+    
+    
+    david=sumTable[1:20,]
+    david$Pvalue=-log(david[,2])
+    termNumber=nrow(david)
+    
+    david$genes=apply(david,1,function(x) { paste(names(ENTREZID[ENTREZID %in% get(as.character(x[1]),org.Hs.egGO2ALLEGS)]),collapse = ',' ) } )
+    
+    allr[[function_type]]=david
+    write.table(david,paste(n,'_' ,function_type, ".xls", sep=""),sep='\t',col.names=T,row.names=F,quote=F)
+    
+    
+    library(ggplot2)
+    p1 <- ggplot(data=david, aes(x=Pvalue, y=Term, size=Count, colour = factor(david$Count)))
+    p1 <- p1 + geom_point()
+    p1 <- p1 + guides(color = FALSE)
+    p1 <- p1 + theme(panel.grid.major = element_line(colour='blue'),
+                     panel.grid.minor = element_blank(),
+                     panel.background = element_blank())
+    p1 <- p1 + xlab(paste("-log10(Pvalue)", sep="")) + ylab("")
+    p1 <- p1 + labs(title=paste("DAVID:", function_type, sep=""))
+    p1 <- p1 + theme(axis.text.x=element_text(size=10, face="plain", colour ='black'))
+    p1 <- p1 + theme(axis.text.y=element_text(size=6, face="plain", colour ='black'))
+    #p1=p1+theme(axis.title.y=element_text(size=10,face="plain",colour ='black'))
+    #p1=p1+theme(legend.position="bottom")
+    p1 <- p1 + xlim(min(david$Pvalue), max(david$Pvalue))
+    #p1=p1+ylim(-10,+15)
+    print(p1)
+    ggsave(file=paste(n,'_' ,function_type, ".png", sep=""), scale=0.8, dpi=600, width = 7, height=1+0.25*termNumber) 
+  } 
+  
+  saveRDS(allr,paste(n,'.GOterm.rds',sep=''))
+  return(allr)
+}
+
+
+
+
+
