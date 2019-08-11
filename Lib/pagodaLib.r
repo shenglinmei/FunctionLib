@@ -1557,3 +1557,155 @@ GOanalysis.term=function(markers,n){
 
 
 
+
+prepare_rawList2=function(bigM2,group4,atype,anoSample,ncut=15){
+  cell_ano=group4[group4==atype]
+  cname=names(cell_ano)
+  
+  
+  #index=grepl('BMET1-',names(anoSample))
+  #anoSample=anoSample[!index] 
+  gname=names(anoSample)
+  
+  t.bigM2=bigM2[,gname]
+  
+  tab=table(anoSample[gname])
+  nnames=names(tab[tab>ncut])
+  
+  raw.mats=list()
+  
+  n.anoSample=anoSample[gname]
+  p2.lis=list()
+  for (n in nnames){
+    cd=t.bigM2[,n.anoSample==n]
+    n1=n
+    raw.mats[[n1]]=cd
+  }
+  nn=unlist(lapply(raw.mats, function(x) ncol(x)))
+  print(atype)
+  print(nn)
+  return(raw.mats)
+  
+}
+
+
+
+
+GETnomrlizedCount2=function(raw.mats,appname){
+  
+  count1=do.call(cbind,lapply(raw.mats,function(x) rowSums(as.matrix(x))))
+  
+  
+  cm.tmp=count1
+  cm.tmp <- as.matrix(cm.tmp)
+  rownames(cm.tmp) <- rownames(cm)
+  ## calculate cpm
+  cpm <- sweep(cm.tmp, 2, apply(cm.tmp,2, sum), FUN='/')
+  dat_cpm <- log10(cpm * 1e6 + 1)
+  rownames(dat_cpm)=rownames(count1)
+  
+  r=list('dat_cpm'=dat_cpm,'raw'=raw.mats)
+  
+  fo=paste(appname,'.normlized.count.rds',sep='')
+  saveRDS(r,fo)
+  
+  return(dat_cpm)
+}
+
+
+#  function of ligand and receptor correlation 
+# @ list of row counts 
+# cell annotation 
+
+#r=runLigand_Receptor(bigM,'Macrophage1','Macrophage2',p2,anoCell)
+runLigand_Receptor=function(bigM,c1,c2,p2,anoCell){
+
+  
+  cell1=prepare_rawList2(bigM,anoCell,c1,anoSample,ncut=15)
+  cell2=prepare_rawList2(bigM,anoCell,c2,anoSample,ncut=15)
+  
+  
+  dcell1=GETnomrlizedCount2(cell1,'cell1')
+  dcell2=GETnomrlizedCount2(cell2,'cell2')
+  
+  
+  table(colnames(dcell1)==colnames(dcell2))
+  
+  
+  RL=readRDS('/d0/home/meisl/bin/data/Ligand_Receptor/Ligand_recptor.rds')
+  
+  index1= as.character(RL[,1]) %in% rownames(dcell1)
+  RL=RL[index1,]
+  
+  index1= as.character(RL[,2]) %in% rownames(dcell1)
+  RL=RL[index1,]
+  
+  selected=unique(c(as.character(RL[,1]),as.character(RL[,2])))
+  
+  
+  ## 
+  de1 <- p2$getDifferentialGenes(groups=anoCell[anoCell %in% c(c1,c2)],z.threshold = -100)
+  names(de1)
+  
+  
+  pairsL=RL[as.character(RL[,1]) %in% selected , ]
+  pairsL$cell1=de1[[c1]][as.character(pairsL[,1]),'Z']
+  pairsL$cell2=de1[[c2 ]][as.character(pairsL[,2]),'Z']
+  Ligand=apply(pairsL,1,function(x) cor(dcell1[as.character(x[1]),],dcell2[as.character(x[2]),]))
+  pairsL$correlation=Ligand
+  #pairsL=pairsL[order(abs(pairsL$correlation),decreasing=T),]
+  
+  colnames(pairsL)[3]=paste('Ligand_',c1,sep='')
+    colnames(pairsL)[4]=paste('Receptor_',c2,sep='')
+    
+  
+  
+  pairsR=RL[as.character(RL[,2]) %in% selected , ]
+  Receptor=apply(pairsR,1,function(x) cor(dcell1[as.character(x[2]),],dcell2[as.character(x[1]),]))
+  pairsR$cell1=de1[[c1 ]][as.character(pairsR[,2]),'Z']
+  pairsR$cell2=de1[[c2 ]][as.character(pairsR[,1]),'Z']
+  pairsR$correlation=Receptor
+  #pairsR=pairsR[order(abs(pairsR$correlation),decreasing=T),]
+  
+  colnames(pairsR)[3]=paste('Receptor_',c1,sep='')
+  colnames(pairsR)[4]=paste('Ligand_',c2,sep='')
+  
+  res=list('pairsL'=pairsL,'pairsR'=pairsR)
+  return(res)
+}
+
+
+
+
+fsubset=function(raw,anoCell,input_cell,cutoff=30){
+
+  cname=names(anoCell[anoCell %in% input_cell])
+  
+  raw2=lapply(raw,function(x) x[,intersect(cname,colnames(x))])
+  
+  num=unlist(lapply(raw2,function(x) ncol(x)))
+  
+  
+  print(num)
+  
+  num=num[ num>cutoff ]
+  raw2=raw2[names(num) ]
+  
+  print(unlist(lapply(raw2,function(x) ncol(x))))
+  
+  return(raw2)
+}
+
+
+
+
+
+
+
+Toch=function(conosCluster){
+  cluster2=as.character(conosCluster)
+  names(cluster2)=names(conosCluster)
+  return(cluster2)
+}
+
+
