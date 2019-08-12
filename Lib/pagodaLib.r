@@ -1618,61 +1618,6 @@ GETnomrlizedCount2=function(raw.mats,appname){
 # cell annotation 
 
 #r=runLigand_Receptor(bigM,'Macrophage1','Macrophage2',p2,anoCell)
-runLigand_Receptor=function(bigM,c1,c2,p2,anoCell){
-
-  
-  cell1=prepare_rawList2(bigM,anoCell,c1,anoSample,ncut=15)
-  cell2=prepare_rawList2(bigM,anoCell,c2,anoSample,ncut=15)
-  
-  
-  dcell1=GETnomrlizedCount2(cell1,'cell1')
-  dcell2=GETnomrlizedCount2(cell2,'cell2')
-  
-  
-  table(colnames(dcell1)==colnames(dcell2))
-  
-  
-  RL=readRDS('/d0/home/meisl/bin/data/Ligand_Receptor/Ligand_recptor.rds')
-  
-  index1= as.character(RL[,1]) %in% rownames(dcell1)
-  RL=RL[index1,]
-  
-  index1= as.character(RL[,2]) %in% rownames(dcell1)
-  RL=RL[index1,]
-  
-  selected=unique(c(as.character(RL[,1]),as.character(RL[,2])))
-  
-  
-  ## 
-  de1 <- p2$getDifferentialGenes(groups=anoCell[anoCell %in% c(c1,c2)],z.threshold = -100)
-  names(de1)
-  
-  
-  pairsL=RL[as.character(RL[,1]) %in% selected , ]
-  pairsL$cell1=de1[[c1]][as.character(pairsL[,1]),'Z']
-  pairsL$cell2=de1[[c2 ]][as.character(pairsL[,2]),'Z']
-  Ligand=apply(pairsL,1,function(x) cor(dcell1[as.character(x[1]),],dcell2[as.character(x[2]),]))
-  pairsL$correlation=Ligand
-  #pairsL=pairsL[order(abs(pairsL$correlation),decreasing=T),]
-  
-  colnames(pairsL)[3]=paste('Ligand_',c1,sep='')
-    colnames(pairsL)[4]=paste('Receptor_',c2,sep='')
-    
-  
-  
-  pairsR=RL[as.character(RL[,2]) %in% selected , ]
-  Receptor=apply(pairsR,1,function(x) cor(dcell1[as.character(x[2]),],dcell2[as.character(x[1]),]))
-  pairsR$cell1=de1[[c1 ]][as.character(pairsR[,2]),'Z']
-  pairsR$cell2=de1[[c2 ]][as.character(pairsR[,1]),'Z']
-  pairsR$correlation=Receptor
-  #pairsR=pairsR[order(abs(pairsR$correlation),decreasing=T),]
-  
-  colnames(pairsR)[3]=paste('Receptor_',c1,sep='')
-  colnames(pairsR)[4]=paste('Ligand_',c2,sep='')
-  
-  res=list('pairsL'=pairsL,'pairsR'=pairsR)
-  return(res)
-}
 
 
 
@@ -1708,4 +1653,120 @@ Toch=function(conosCluster){
   return(cluster2)
 }
 
+
+
+
+prepare_rawList3=function(bigM,group4,atype,anoSample,ncut=15){
+  gname=names(group4[group4==atype])
+  print(length(gname))
+  
+  tab=table(anoSample[gname])
+  nnames=names(tab[tab>15])
+  
+  raw.mats=list()
+  
+  n.anoSample=anoSample[gname]
+  for (n in nnames){
+    cd=bigM[,names(n.anoSample[n.anoSample==n])]
+    n1=n
+    raw.mats[[n1]]=cd
+  }
+  
+  nn=unlist(lapply(raw.mats, function(x) ncol(x)))
+  print(atype)
+  print(nn)
+  return(raw.mats)
+  
+  
+}
+
+
+
+prepare_rawList3=function(bigM,group4,atype,anoSample,ncut=15){
+  gname=names(group4[group4==atype])
+  print(length(gname))
+  
+  tab=table(anoSample[gname])
+  nnames=names(tab[tab>15])
+  
+  raw.mats=list()
+  
+  n.anoSample=anoSample[gname]
+  for (n in nnames){
+    cd=bigM[,names(n.anoSample[n.anoSample==n])]
+    n1=n
+    raw.mats[[n1]]=cd
+  }
+  
+  nn=unlist(lapply(raw.mats, function(x) ncol(x)))
+  print(atype)
+  print(nn)
+  return(raw.mats)
+  
+  
+}
+
+
+
+
+#r=runLigand_Receptor(bigM,'Macrophage1','Macrophage2',p2,anoCell)
+runLigand_Receptor2=function(bigM,c1,c2,p2,anoCell,anoSample){
+  
+  
+  cell1=prepare_rawList3(bigM,anoCell,c1,anoSample,ncut=15)
+  cell2=prepare_rawList3(bigM,anoCell,c2,anoSample,ncut=15)
+  
+  
+  dcell1=GETnomrlizedCount2(cell1,'cell1')
+  dcell2=GETnomrlizedCount2(cell2,'cell2')
+  
+  inter=intersect(colnames(dcell1),colnames(dcell2))
+  
+  dcell1=dcell1[,inter]
+  dcell2=dcell2[,inter]
+  table(colnames(dcell1)==colnames(dcell2))
+  
+  
+  RL=readRDS('/d0/home/meisl/bin/data/Ligand_Receptor/Ligand_recptor.rds')
+  
+  index1= as.character(RL[,1]) %in% rownames(dcell1)
+  RL=RL[index1,]
+  
+  index1= as.character(RL[,2]) %in% rownames(dcell1)
+  RL=RL[index1,]
+  
+  selected=unique(c(as.character(RL[,1]),as.character(RL[,2])))
+  
+  
+  ## 
+  de1 <- p2$getDifferentialGenes(groups=anoCell[anoCell %in% c(c1,c2)],z.threshold = -100)
+  names(de1)
+  pairsL=RL[as.character(RL[,1]) %in% selected , ]
+  pairsL$cell1=de1[[c1]][as.character(pairsL[,1]),'Z']
+  pairsL$cell2=de1[[c2 ]][as.character(pairsL[,2]),'Z']
+  Ligand=apply(pairsL,1,function(x) cor(dcell1[as.character(x[1]),],dcell2[as.character(x[2]),]))
+  pairsL$correlation=Ligand
+  #pairsL=pairsL[order(abs(pairsL$correlation),decreasing=T),]
+  
+  colnames(pairsL)[3]=paste('Ligand_',c1,sep='')
+  colnames(pairsL)[4]=paste('Receptor_',c2,sep='')
+  
+  
+  
+  pairsR=RL[as.character(RL[,2]) %in% selected , ]
+  Receptor=apply(pairsR,1,function(x) cor(dcell1[as.character(x[2]),],dcell2[as.character(x[1]),]))
+  pairsR$cell1=de1[[c1 ]][as.character(pairsR[,2]),'Z']
+  pairsR$cell2=de1[[c2 ]][as.character(pairsR[,1]),'Z']
+  pairsR$correlation=Receptor
+  #pairsR=pairsR[order(abs(pairsR$correlation),decreasing=T),]
+  
+  colnames(pairsR)[3]=paste('Receptor_',c1,sep='')
+  colnames(pairsR)[4]=paste('Ligand_',c2,sep='')
+  
+  res=list('pairsL'=pairsL,'pairsR'=pairsR)
+  return(res)
+}
+
+
+#r=runLigand_Receptor(bigM,'Macrophage1','Macrophage2',p2,anoCell)
 
