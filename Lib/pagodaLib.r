@@ -1021,6 +1021,25 @@ runConos=function(datlp2,appname,n.cores=8){
   f1=paste(appname,'_conos.rds',sep='')
   saveRDS(con,f1)
 
+con$embedGraph(method = 'UMAP')
+
+p=con$plotGraph()
+ggsave(paste(appname,'.umap.png',sep=''),p,height=7,width=7)
+
+
+saveRDS(con$embedding,paste(appname,'.umap.rds',sep=''))
+
+
+con$embedGraph(method="UMAP", n.cores=30,min.dist=1e-10,n.neighbors=50)
+
+p2a <- con$plotGraph(alpha=0.1,size=0.1,plot.na=T)
+
+saveRDS(con$embedding,paste(appname,'.umap2.rds',sep=''))
+
+
+ggsave(paste(appname,'.umap409.png',sep=''),p2a,height=7,width=7)
+
+
   return(con)
 
 
