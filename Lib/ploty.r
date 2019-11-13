@@ -162,3 +162,61 @@ myvenn=function(res,fout){
 }
 
 
+
+
+
+
+figExp=function(emb,colr,size=0.2,alpha=0.4){
+  
+  # colr=p2$counts[cname,'CCL20']
+  #size=0.01
+  #alpha=0.5
+  
+  
+  embedding=emb
+  
+  
+  plot.df <- tibble::rownames_to_column(as.data.frame(embedding), 
+                                        "CellName")
+  colnames(plot.df)[2:3] <- c("x", "y")
+  geom_point_w <- ggplot2::geom_point
+  
+  
+  colors=colr
+  
+  color.range <- range(colors)
+  
+  gg <- ggplot2::ggplot(plot.df, ggplot2::aes(x = x, y = y)) 
+  
+  gg <- gg + geom_point_w(col='#d8d0d0', 
+                          alpha = alpha, size = size)
+  
+  #gg <- gg + ggplot2::scale_color_gradient2(low = "#0000ff",  mid = "#d8d0d0", high = "#ff0000", limits = color.range)
+  
+  rownames(plot.df)=plot.df[,1]
+  nname=names(colr[colr>0])
+  
+  plot.df2=plot.df[nname,]
+  
+  #gg=gg+geom_point(data=plot.df2, aes(x = x, y = y),alpha = 0.4, size = 0.01,aes(col = colors[nname]))
+  
+  gg=gg+geom_point(data=plot.df2, aes(x = x, y = y,colour = colors[nname]),alpha = alpha, size = size)
+  
+  gg <- gg + ggplot2::scale_color_gradient2(low = "#0000ff",  mid = "#d8d0d0", high = "#ff0000", limits = color.range)
+  
+  gg <- gg + ggplot2::theme(legend.position = "none")
+  gg <- gg + ggplot2::theme(axis.ticks = ggplot2::element_blank(), 
+                            axis.text = ggplot2::element_blank())
+  gg <- gg + ggplot2::theme(axis.title = ggplot2::element_blank())
+  
+  
+  gg <- gg + theme(   panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                      panel.background = element_blank(),panel.border = element_rect(colour = "black", fill=NA, size=0.5))
+  
+  return(gg)
+  
+}
+
+# t=p2$counts[cname,gene]
+#   a=figExp(emb,t,size=0.01)
+#  a=a+ theme(plot.title = element_text(size=12,hjust = 0.5))+ggtitle(gene)

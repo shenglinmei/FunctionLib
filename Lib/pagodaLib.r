@@ -1789,3 +1789,25 @@ runLigand_Receptor2=function(bigM,c1,c2,p2,anoCell,anoSample){
 
 #r=runLigand_Receptor(bigM,'Macrophage1','Macrophage2',p2,anoCell)
 
+
+read10xMatrix2=function (path) {
+  matrixFile <- paste(path, "/matrix.mtx.gz", sep = "")
+  genesFile <- paste(path, "/features.tsv.gz", sep = "")
+  barcodesFile <- paste(path, "/barcodes.tsv.gz", sep = "")
+  if (!file.exists(matrixFile)) {
+    stop("Matrix file does not exist")
+  }
+  if (!file.exists(genesFile)) {
+    stop("Genes file does not exist")
+  }
+  if (!file.exists(barcodesFile)) {
+    stop("Barcodes file does not exist")
+  }
+  x <- as(Matrix::readMM(gzfile(matrixFile)), "dgCMatrix")
+  genes <- read.table(gzfile(genesFile))
+  rownames(x) <- genes[, 2]
+  barcodes <- read.table(gzfile(barcodesFile))
+  colnames(x) <- barcodes[, 1]
+  invisible(x)
+}
+

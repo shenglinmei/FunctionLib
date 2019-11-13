@@ -1,6 +1,56 @@
 
 
 
+n(p2myeloid,markers,appname){
+  markers=intersect(markers,colnames(p2$counts))
+  
+  
+  x <- as.matrix(p2myeloid$counts[names(conosCluster),markers])
+  ## trim outliers
+  x <- apply(x, 2, function(xp) {
+    qs <- quantile(xp,c(0.01,0.98))
+    xp[xp<qs[1]] <- qs[1]
+    xp[xp>qs[2]] <- qs[2]
+    xp
+  })
+  x <- x[,(apply(x,2,sd) != 0)]
+  x <- t(scale(x))
+  ## sample 2000 cells for plotting
+  #x <- x[,sample(ncol(x),2000)]
+  o <- order(conosCluster[colnames(x)])
+  
+  
+  x=x[,o]
+  #ss=apply(x,2,function(x) sum(x))
+  #x=x[,abs(ss)>0.1]
+  
+  annot <- data.frame(CellType=conosCluster[colnames(x)],row.names = colnames(x))
+  
+  
+  annot2=annot
+  
+  #annot2 = data.frame(ID = as.factor(as.character(annot[,1])))
+  rownames(annot2)=colnames(x)
+  
+  
+  cellA=annot2[,1]
+  names(cellA)=rownames(annot2)
+  
+  o <- order(cellA)
+  
+  x=x[,o]
+  
+  pal <- colorRampPalette(c('navy','white','firebrick3'))(50)
+  ## draw heatmap
+  
+  fout=paste(appname,'.DiffG.png')
+  rgb.palette <- colorRampPalette(c("blue","white","red"), space = "rgb" )
+  heat=pheatmap(x,cluster_cols=FALSE,annotation_col = annot2,show_colnames = F,annotation_legend = TRUE, #,gaps_col =  1,
+                cluster_rows = T,color=rgb.palette(100),filename=fout,fontsize_row =5,width=8,height=4*0.02*length(markers),
+                breaks = c(seq(min(x),-0.01,length.out = 50),0.01,seq(0.1,2,length.out = 48),max(x)))
+  
+}
+
 
 
 Boxplot_dat2=function(m2,p2,fraction,anoSample,group4){
@@ -18,7 +68,7 @@ Boxplot_dat2=function(m2,p2,fraction,anoSample,group4){
   dat=data.frame('m2score'=m2score,'cell'=group4,'Type'=fraction[cname],sample=anoSample[cname])
   nn=as.factor(dat$Type)
   
-
+  
   dat$Type2=apply(dat,1,function(x) paste(x['cell'],x['sample']))
   tmp=tapply(dat$m2score,dat$Type2,mean)
   index=match(names(tmp),dat$Type2)
@@ -28,12 +78,11 @@ Boxplot_dat2=function(m2,p2,fraction,anoSample,group4){
                   'sample'=dat$sample[index])
   
   dat2$name=paste(rownames(dat2),as.character(dat2[,'cell']))
-  print(table(boxScore$Type))
-  print(table(boxScore$cell))
-  return(dat2)
+  print(table(dat2$Type))
+  print(table(dat2$cell))
+  return(dat)
   
 }
-
 
 
 drawBoxplot=function(appname,tmp,name2,clpalette.fraction=NULL,limHeight=1.5,dsize=3,dtype=NULL,dcell=NULL){
@@ -57,7 +106,7 @@ drawBoxplot=function(appname,tmp,name2,clpalette.fraction=NULL,limHeight=1.5,dsi
   write.table(sig,paste(name2,'.pvalue.xls',sep=''),col.names=T,row.names=F,quote=F,sep='\t')
   sig=sig[sig$p.signif!='ns',]
   sig=sig[(sig$group1==nn | sig$group2==nn),]
-  
+  print(sig)
   siglis=split(sig, seq(nrow(sig)))
   pair=lapply(siglis,function(x) as.character(x[,2:3]))
   
@@ -72,7 +121,7 @@ drawBoxplot=function(appname,tmp,name2,clpalette.fraction=NULL,limHeight=1.5,dsi
   p1
   
   
-  ggsave(paste(appname,'',name2,'.score.pvalue.pdf',sep=''),p1,w=2.5,h=3.3)
+  ggsave(paste(appname,'',name2,'.score.pvalue.pdf',sep=''),p1,w=5,h=5)
   
   saveRDS(tmp,paste(appname,'',name2,'.dat.rds',sep=''))
   
@@ -82,10 +131,11 @@ drawBoxplot=function(appname,tmp,name2,clpalette.fraction=NULL,limHeight=1.5,dsi
   p1=p1+ theme(legend.position="none")
   p1
   
-  ggsave(paste(appname,'',name2,'.score.pdf',sep=''),p1,w=2.8,h=2.9)
+  ggsave(paste(appname,'',name2,'.score.pdf',sep=''),p1,w=5,h=4)
   
   return(p1)
 }
+
 
 
 
